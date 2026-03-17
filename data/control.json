@@ -1,0 +1,9 @@
+{
+  "paper_trading_enabled": true,
+  "allow_new_entries": false,
+  "force_close_trade": false,
+  "trailing_stop_enabled": true,
+  "stop_loss_pct": 0.6,
+  "trailing_stop_pct": 0.35,
+  "break_even_trigger_pct": 0.5
+}
