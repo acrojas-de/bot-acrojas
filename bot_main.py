@@ -868,7 +868,7 @@ while True:
                 mode_msg = (
                     f"🤖 MODO ACTUAL\n"
                     f"Modo bot: {BOT_MODE}\n"
-                    f"Modo gestión: {TRADE_MODE}\n"
+                    f"Modo gestión: {current_trade_mode}\n"
                     f"Timeframes activos: {', '.join(ACTIVE_TIMEFRAMES)}"
                 )
                 send_telegram(mode_msg)
