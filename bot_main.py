@@ -1,7 +1,6 @@
 from binance.client import Client
 
 from alerts.telegram_alerts import (
-
     send_welcome_panel,
     send_telegram,
     read_telegram_commands,
@@ -10,7 +9,6 @@ from alerts.telegram_alerts import (
 from engines.htf_bias_engine import get_htf_bias
 from engines.compression_engine import compression_signal
 from engines.rebound_engine import rebound_entry
-from engines.sniper_engine import sniper_entry
 
 import time
 
@@ -59,7 +57,8 @@ def get_klines(interval, limit=120):
         interval=interval,
         limit=limit,
     )
-    
+
+
 def analyze_symbol(symbol):
     try:
         klines = client.get_klines(symbol=symbol, interval="15m", limit=50)
@@ -79,6 +78,7 @@ def analyze_symbol(symbol):
     except Exception:
         return None
 
+
 def get_account_balances():
     account = client.get_account()
     balances = {}
@@ -96,6 +96,7 @@ def get_account_balances():
             }
 
     return balances
+
 
 def get_asset_usdt_value(asset, amount):
     if amount <= 0:
@@ -117,14 +118,12 @@ def get_asset_usdt_value(asset, amount):
         except Exception:
             return amount
 
-    # Intento directo: ACTIVOUSDT
     try:
         ticker = client.get_symbol_ticker(symbol=f"{asset}USDT")
         return amount * float(ticker["price"])
     except Exception:
         pass
 
-    # Intento inverso: USDTACTIVO
     try:
         ticker = client.get_symbol_ticker(symbol=f"USDT{asset}")
         price = float(ticker["price"])
@@ -135,15 +134,18 @@ def get_asset_usdt_value(asset, amount):
 
     return 0.0
 
+
 def get_real_balance(asset="USDT"):
     balances = get_account_balances()
     if asset in balances:
         return balances[asset]["free"]
     return 0.0
 
+
 def get_balance():
     wallet = load_wallet()
     return wallet["balance"]
+
 
 def simulate_entry(asset):
     try:
@@ -182,6 +184,7 @@ def simulate_entry(asset):
     except Exception as e:
         return f"❌ Error entrada: {e}"
 
+
 print("🛰️ ACROJAS BTC BOT iniciado")
 
 send_welcome_panel()
@@ -197,7 +200,6 @@ manual_order_data = {}
 risk_state = None
 risk_data = {}
 
-# caché para que Telegram vaya rápido y el mercado a su ritmo
 last_market_run = 0
 cached_price = None
 cached_signal = None
@@ -251,10 +253,10 @@ while True:
             for tf in ACTIVE_TIMEFRAMES:
                 interval = ALL_TIMEFRAMES[tf]
                 klines_map[tf] = get_klines(interval)
-                
+
             bias_4h = get_htf_bias(klines_map["4h"])
             compression = compression_signal(klines_map["1h"])
-            
+
             signal = build_signal(price, klines_map)
 
             risk_mode, capital_diff = risk_status(
@@ -276,7 +278,7 @@ while True:
         ema_map = signal.get("ema_map", {})
         interpretation = signal["interpretation"]
         strength = signal["strength"]
-        rebound = signal["rebound"]
+        rebound_probable = signal["rebound"]
         trap = signal["trap"]
         structure = signal["structure"]
         state_market = signal["state_market"]
@@ -288,6 +290,7 @@ while True:
         context = get_market_context(radar)
         setup_5m = pullback_zone(klines_map["5m"])
         last_candle_5m = get_last_candle(klines_map["5m"])
+
         sniper = sniper_entry(
             context=context,
             setup_5m=setup_5m,
@@ -297,34 +300,38 @@ while True:
             compression=compression,
         )
 
-        rebound = rebound_entry(
+        rebound_signal = rebound_entry(
             price=price,
             magnet_up=magnet_up,
             magnet_down=magnet_down,
             last_candle=last_candle_5m,
         )
 
-        trade = None
+        entry_signal = None
 
-        # ❌ Evitar conflicto
-        if sniper in ("long", "short") and rebound in ("long", "short") and sniper != rebound:
-            trade = None
-
-        # 🎯 Prioridad sniper
+        if (
+            sniper in ("long", "short")
+            and rebound_signal in ("long", "short")
+            and sniper != rebound_signal
+        ):
+            entry_signal = None
         elif sniper == "long":
-            trade = open_long(price)
-
+            entry_signal = "long"
         elif sniper == "short":
-            trade = open_short(price)
+            entry_signal = "short"
+        elif rebound_signal == "long":
+            entry_signal = "long"
+        elif rebound_signal == "short":
+            entry_signal = "short"
 
-        # 🔁 Backup rebound
-        elif rebound == "long":
-            trade = open_long(price)
-
-        elif rebound == "short":
-            trade = open_short(price) 
-        
-        print("sniper:", sniper, "rebound:", rebound, "trade:", trade)            
+        print(
+            "sniper:",
+            sniper,
+            "rebound_signal:",
+            rebound_signal,
+            "entry_signal:",
+            entry_signal,
+        )
 
         # =========================
         # TELEGRAM COMMANDS
@@ -606,12 +613,14 @@ while True:
                     + "\n".join([f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}" for tf in radar])
                     + f"\n\n📊 Lectura: {interpretation}"
                     + f"\n⚡ Fuerza: {strength}"
-                    + f"\n🔁 Rebote probable: {rebound}"
+                    + f"\n🔁 Rebote probable: {rebound_probable}"
                     + f"\n🪤 Trap: {trap}"
                     + f"\n🧠 Contexto: {context}"
                     + f"\n🎯 Pullback EMA21: {'SÍ' if setup_5m['near_ema21'] else 'NO'}"
                     + f"\n🎯 Pullback EMA50: {'SÍ' if setup_5m['near_ema50'] else 'NO'}"
                     + f"\n🎯 Sniper: {sniper if sniper else 'esperando'}"
+                    + f"\n🎯 Rebound señal: {rebound_signal if rebound_signal else 'esperando'}"
+                    + f"\n🎯 Entrada final: {entry_signal if entry_signal else 'esperando'}"
                     + f"\n🎯 Objetivo: {target}"
                     + f"\n📈 Estructura: {structure}"
                     + f"\n🌡️ Estado mercado: {state_market}"
@@ -620,6 +629,7 @@ while True:
                     + f"\n🎯 Liquidez: {liq_target}"
                 )
                 send_telegram(radar_msg)
+
             elif cmd in ["/scanalts", "scanalts"]:
                 try:
                     balances = get_account_balances()
@@ -627,9 +637,9 @@ while True:
                     lines = ["🛰️ SCAN ALTS PRO\n"]
 
                     for symbol in WATCHLIST:
-                        signal = analyze_symbol(symbol)
+                        signal_alt = analyze_symbol(symbol)
 
-                        if not signal:
+                        if not signal_alt:
                             continue
 
                         asset = symbol.replace("USDT", "")
@@ -644,13 +654,13 @@ while True:
                         )
 
                         lines.append(f"📊 {symbol}")
-                        lines.append(f"Señal: {signal}")
+                        lines.append(f"Señal: {signal_alt}")
 
                         if has_asset:
                             lines.append("💼 Ya tienes posición")
                             action = "mantener / vigilar"
 
-                        elif has_base and signal == "BUY":
+                        elif has_base and signal_alt == "BUY":
                             lines.append("💰 Tienes saldo disponible")
                             action = "posible entrada"
 
@@ -662,7 +672,7 @@ while True:
                     send_telegram("\n".join(lines))
 
                 except Exception as e:
-                    send_telegram(f"❌ Error scan: {e}")                
+                    send_telegram(f"❌ Error scan: {e}")
 
             elif cmd.startswith("/enter"):
                 try:
@@ -673,14 +683,10 @@ while True:
                         continue
 
                     asset = parts[1].upper()
-                    
-                    # =========================
-                    # FILTRO INTELIGENTE
-                    # =========================
 
-                    signal = analyze_symbol(asset + "USDT")
+                    signal_alt = analyze_symbol(asset + "USDT")
 
-                    if signal != "BUY":
+                    if signal_alt != "BUY":
                         send_telegram("❌ No hay señal BUY clara")
                         continue
 
@@ -692,7 +698,6 @@ while True:
                     send_telegram(f"❌ Error enter: {e}")
 
             elif cmd in ["/trade", "trade"]:
-                
                 wallet_live = load_wallet()
                 trade_live = wallet_live["open_trade"]
 
@@ -770,7 +775,7 @@ while True:
                 )
 
                 send_telegram(wallet_msg)
-                
+
             elif cmd in ["/realwallet", "cuenta real"]:
                 try:
                     balances = get_account_balances()
@@ -784,7 +789,7 @@ while True:
 
                     send_telegram("\n".join(lines))
                 except Exception as e:
-                    send_telegram(f"❌ Error leyendo cuenta real: {e}")   
+                    send_telegram(f"❌ Error leyendo cuenta real: {e}")
 
             elif cmd in ["/balance", "balance"]:
                 try:
@@ -855,7 +860,7 @@ while True:
                     send_telegram("\n".join(lines))
 
                 except Exception as e:
-                    send_telegram(f"❌ Error balance pro: {e}")      
+                    send_telegram(f"❌ Error balance pro: {e}")
 
             elif cmd in ["/mode", "modo"]:
                 mode_msg = (
@@ -1043,7 +1048,7 @@ while True:
                         )
 
             else:
-                if sniper == "long":
+                if entry_signal == "long":
                     trade = open_long(price)
                     print("Paper LONG abierto:", trade)
 
@@ -1052,7 +1057,7 @@ while True:
                             f"🚨 PAPER LONG ABIERTO\n"
                             f"Modo gestión: {TRADE_MODE}\n"
                             f"Contexto: {context}\n"
-                            f"Setup: pullback 5m confirmado\n"
+                            f"Setup: sniper={sniper} | rebound={rebound_signal}\n"
                             f"Entrada: {trade['entry']:.2f}\n"
                             f"Stop: {trade['stop']:.2f}\n"
                             f"Balance simulado: {wallet['balance']:.2f}\n"
@@ -1060,7 +1065,7 @@ while True:
                         )
                         send_telegram(entry_msg)
 
-                elif sniper == "short":
+                elif entry_signal == "short":
                     trade = open_short(price)
                     print("Paper SHORT abierto:", trade)
 
@@ -1069,7 +1074,7 @@ while True:
                             f"🚨 PAPER SHORT ABIERTO\n"
                             f"Modo gestión: {TRADE_MODE}\n"
                             f"Contexto: {context}\n"
-                            f"Setup: pullback 5m confirmado\n"
+                            f"Setup: sniper={sniper} | rebound={rebound_signal}\n"
                             f"Entrada: {trade['entry']:.2f}\n"
                             f"Stop: {trade['stop']:.2f}\n"
                             f"Balance simulado: {wallet['balance']:.2f}\n"
@@ -1090,9 +1095,7 @@ while True:
         if magnet_down > 0:
             dist_down = (price - magnet_down) / price * 100
             if 0 <= dist_down <= 0.3:
-                magnet_alert = (
-                    f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
-                )
+                magnet_alert = f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
 
         if magnet_alert:
             send_telegram(
@@ -1108,15 +1111,14 @@ while True:
             print("\nBTC RADAR")
             print("------------------")
             print("BIAS 4H:", bias_4h)
-            print("COMPRESSION:", compression)  
-            
+            print("COMPRESSION:", compression)
 
             for tf in radar:
                 print(f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}")
 
             print("LECTURA:", interpretation)
             print("FUERZA SEÑAL:", strength)
-            print("REBOTE PROBABLE:", rebound)
+            print("REBOTE PROBABLE:", rebound_probable)
             print("TRAP DETECTOR:", trap)
             print("OBJETIVO:", target)
             print("ESTRUCTURA:", structure)
@@ -1130,7 +1132,7 @@ while True:
         state = (
             tuple(radar.values()),
             strength,
-            rebound,
+            rebound_probable,
             trap,
             target,
             structure,
@@ -1220,7 +1222,7 @@ while True:
 
             message += f"\n📊 LECTURA:\n{interpretation}\n"
             message += f"\n⚡ FUERZA:\n{strength}\n"
-            message += f"\n🔁 Rebote probable: {rebound}\n"
+            message += f"\n🔁 Rebote probable: {rebound_probable}\n"
             message += f"🪤 Trap detector: {trap}\n"
             message += f"🎯 Objetivo probable: {target}\n"
             message += f"📊 Estructura mercado: {structure}\n"
