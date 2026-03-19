@@ -193,6 +193,8 @@ print("⏱️ Timeframes activos:", ", ".join(ACTIVE_TIMEFRAMES))
 print("🧠 Modo bot:", BOT_MODE)
 print("🛠️ Modo gestión:", TRADE_MODE)
 
+current_trade_mode = TRADE_MODE
+
 last_state = None
 last_update_id = None
 manual_order_state = None
@@ -732,14 +734,14 @@ while True:
                             else ""
                         )
                         + f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}\n"
-                        + f"Modo gestión: {TRADE_MODE}"
+                        + f"Modo gestión: {current_trade_mode}"
                     )
                 else:
                     trade_msg = (
                         f"📈 ESTADO TRADE\n"
                         f"Trade: SIN OPERACIÓN ABIERTA\n"
                         f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}\n"
-                        f"Modo gestión: {TRADE_MODE}"
+                        f"🛠️ Modo gestión: {current_trade_mode}\n"
                     )
 
                 send_telegram(trade_msg)
@@ -957,16 +959,12 @@ while True:
                 send_telegram("▶️ Bot reactivado (puede abrir trades)")
 
             elif cmd in ["/manual", "m", "manual", "manual_spot"]:
-                TRADE_MODE = "MANUAL_SPOT"
-                print("DEBUG cmd manual detectado:", cmd)
-                send_telegram(f"🛠️ Modo cambiado a {TRADE_MODE}")
-                send_welcome_panel()
+                current_trade_mode = "MANUAL_SPOT"
+                send_telegram(f"🛠️ Modo cambiado a {current_trade_mode}")
 
             elif cmd in ["/auto", "a", "auto", "auto_leverage"]:
-                TRADE_MODE = "AUTO_LEVERAGE"
-                print("DEBUG cmd auto detectado:", cmd)
-                send_telegram(f"🤖 Modo cambiado a {TRADE_MODE}")
-                send_welcome_panel()
+                current_trade_mode = "AUTO_LEVERAGE"
+                send_telegram(f"🤖 Modo cambiado a {current_trade_mode}")
 
         # =========================
         # PAPER TRADING ENGINE
@@ -1016,7 +1014,7 @@ while True:
             manual_order_state is None
             and control["paper_trading_enabled"]
             and control["allow_new_entries"]
-            and TRADE_MODE == "AUTO_LEVERAGE"
+            and current_trade_mode == "AUTO_LEVERAGE"
         ):
             if BOT_MODE == "TEST_5M":
                 last_5m = klines_map["5m"][-2]
@@ -1030,10 +1028,10 @@ while True:
                     if trade is not None:
                         send_telegram(
                             f"🧪 TEST LONG\n"
-                            f"Modo gestión: {TRADE_MODE}\n"
+                            f"Modo gestión: {current_trade_mode}\n"
                             f"Entrada: {trade['entry']:.2f}\n"
                             f"Stop: {trade['stop']:.2f}\n"
-                            f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}"
+                            f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                         )
 
                 elif close_price < open_price:
@@ -1043,10 +1041,10 @@ while True:
                     if trade is not None:
                         send_telegram(
                             f"🧪 TEST SHORT\n"
-                            f"Modo gestión: {TRADE_MODE}\n"
+                            f"Modo gestión: {current_trade_mode}\n"
                             f"Entrada: {trade['entry']:.2f}\n"
                             f"Stop: {trade['stop']:.2f}\n"
-                            f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}"
+                            f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                         )
 
             else:
