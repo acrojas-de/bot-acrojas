@@ -9,6 +9,9 @@ from alerts.telegram_alerts import (
 
 from engines.htf_bias_engine import get_htf_bias
 from engines.compression_engine import compression_signal
+from engines.rebound_engine import rebound_entry
+from engines.sniper_engine import sniper_entry
+
 import time
 
 WATCHLIST = [
@@ -291,8 +294,37 @@ while True:
             trap=trap,
             last_candle=last_candle_5m,
             bias_4h=bias_4h,
-            compression=compression,                                
+            compression=compression,
         )
+
+        rebound = rebound_entry(
+            price=price,
+            magnet_up=magnet_up,
+            magnet_down=magnet_down,
+            last_candle=last_candle_5m,
+        )
+
+        trade = None
+
+        # ❌ Evitar conflicto
+        if sniper in ("long", "short") and rebound in ("long", "short") and sniper != rebound:
+            trade = None
+
+        # 🎯 Prioridad sniper
+        elif sniper == "long":
+            trade = open_long(price)
+
+        elif sniper == "short":
+            trade = open_short(price)
+
+        # 🔁 Backup rebound
+        elif rebound == "long":
+            trade = open_long(price)
+
+        elif rebound == "short":
+            trade = open_short(price) 
+        
+        print("sniper:", sniper, "rebound:", rebound, "trade:", trade)            
 
         # =========================
         # TELEGRAM COMMANDS
