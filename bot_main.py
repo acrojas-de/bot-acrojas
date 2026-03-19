@@ -956,14 +956,16 @@ while True:
                 save_control(control)
                 send_telegram("▶️ Bot reactivado (puede abrir trades)")
 
-            elif cmd in ["/manual", "m", "manual"]:
+            elif cmd in ["/manual", "m", "manual", "manual_spot"]:
                 TRADE_MODE = "MANUAL_SPOT"
-                send_telegram("🛠️ Modo cambiado a MANUAL_SPOT")
+                print("DEBUG cmd manual detectado:", cmd)
+                send_telegram(f"🛠️ Modo cambiado a {TRADE_MODE}")
                 send_welcome_panel()
 
-            elif cmd in ["/auto", "a", "auto"]:
+            elif cmd in ["/auto", "a", "auto", "auto_leverage"]:
                 TRADE_MODE = "AUTO_LEVERAGE"
-                send_telegram("🤖 Modo cambiado a AUTO_LEVERAGE")
+                print("DEBUG cmd auto detectado:", cmd)
+                send_telegram(f"🤖 Modo cambiado a {TRADE_MODE}")
                 send_welcome_panel()
 
         # =========================
