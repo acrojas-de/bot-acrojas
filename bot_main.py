@@ -1,10 +1,23 @@
 from binance.client import Client
+
 from alerts.telegram_alerts import (
+
     send_welcome_panel,
     send_telegram,
     read_telegram_commands,
 )
+
+from engines.htf_bias_engine import get_htf_bias
+from engines.compression_engine import compression_signal
 import time
+
+WATCHLIST = [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "BNBUSDT",
+]
 
 from config import (
     API_KEY,
@@ -19,6 +32,9 @@ from config import (
 from config import CAPITAL_BASE, MAX_LOSS_ALLOWED, MIN_PROFIT_ALERT
 from engines.risk_manager import risk_status
 from engines.signal_engine import build_signal
+from engines.context_engine import get_market_context
+from engines.pullback_engine import pullback_zone
+from engines.sniper_entry import get_last_candle, sniper_entry
 from engines.paper_engine import (
     open_long,
     open_short,
@@ -40,12 +56,128 @@ def get_klines(interval, limit=120):
         interval=interval,
         limit=limit,
     )
+    
+def analyze_symbol(symbol):
+    try:
+        klines = client.get_klines(symbol=symbol, interval="15m", limit=50)
+        closes = [float(k[4]) for k in klines]
 
+        if len(closes) < 20:
+            return None
+
+        last = closes[-1]
+        avg = sum(closes[-20:]) / 20
+
+        if last > avg:
+            return "BUY"
+        else:
+            return "SELL"
+
+    except Exception:
+        return None
+
+def get_account_balances():
+    account = client.get_account()
+    balances = {}
+
+    for b in account["balances"]:
+        free_amt = float(b["free"])
+        locked_amt = float(b["locked"])
+        total_amt = free_amt + locked_amt
+
+        if total_amt > 0:
+            balances[b["asset"]] = {
+                "free": free_amt,
+                "locked": locked_amt,
+                "total": total_amt,
+            }
+
+    return balances
+
+def get_asset_usdt_value(asset, amount):
+    if amount <= 0:
+        return 0.0
+
+    if asset == "USDT":
+        return amount
+
+    if asset == "USDC":
+        return amount
+
+    if asset == "BUSD":
+        return amount
+
+    if asset == "EUR":
+        try:
+            ticker = client.get_symbol_ticker(symbol="EURUSDT")
+            return amount * float(ticker["price"])
+        except Exception:
+            return amount
+
+    # Intento directo: ACTIVOUSDT
+    try:
+        ticker = client.get_symbol_ticker(symbol=f"{asset}USDT")
+        return amount * float(ticker["price"])
+    except Exception:
+        pass
+
+    # Intento inverso: USDTACTIVO
+    try:
+        ticker = client.get_symbol_ticker(symbol=f"USDT{asset}")
+        price = float(ticker["price"])
+        if price > 0:
+            return amount / price
+    except Exception:
+        pass
+
+    return 0.0
+
+def get_real_balance(asset="USDT"):
+    balances = get_account_balances()
+    if asset in balances:
+        return balances[asset]["free"]
+    return 0.0
 
 def get_balance():
     wallet = load_wallet()
     return wallet["balance"]
 
+def simulate_entry(asset):
+    try:
+        symbol = f"{asset}USDT"
+
+        ticker = client.get_symbol_ticker(symbol=symbol)
+        price = float(ticker["price"])
+
+        balances = get_account_balances()
+
+        usdt_available = 0
+
+        if "USDT" in balances:
+            usdt_available += float(balances["USDT"]["free"])
+
+        if "USDC" in balances:
+            usdt_available += float(balances["USDC"]["free"])
+
+        if usdt_available <= 0:
+            return "❌ No tienes saldo disponible"
+
+        capital = usdt_available * 0.2
+        quantity = capital / price
+        stop_price = price * 0.98
+
+        return (
+            f"🚀 ENTRADA SIMULADA\n\n"
+            f"Activo: {symbol}\n"
+            f"Precio entrada: {price:.2f}\n"
+            f"Capital usado: {capital:.2f} USDT\n"
+            f"Cantidad: {quantity:.6f}\n"
+            f"Stop: {stop_price:.2f}\n"
+            f"Modo: TEST (no ejecutado)"
+        )
+
+    except Exception as e:
+        return f"❌ Error entrada: {e}"
 
 print("🛰️ ACROJAS BTC BOT iniciado")
 
@@ -69,6 +201,7 @@ cached_signal = None
 cached_risk_mode = None
 cached_capital_diff = None
 cached_klines_map = {}
+
 
 while True:
     try:
@@ -115,7 +248,10 @@ while True:
             for tf in ACTIVE_TIMEFRAMES:
                 interval = ALL_TIMEFRAMES[tf]
                 klines_map[tf] = get_klines(interval)
-
+                
+            bias_4h = get_htf_bias(klines_map["4h"])
+            compression = compression_signal(klines_map["1h"])
+            
             signal = build_signal(price, klines_map)
 
             risk_mode, capital_diff = risk_status(
@@ -134,6 +270,7 @@ while True:
 
         radar = signal["radar"]
         rsi_map = signal["rsi"]
+        ema_map = signal.get("ema_map", {})
         interpretation = signal["interpretation"]
         strength = signal["strength"]
         rebound = signal["rebound"]
@@ -144,6 +281,16 @@ while True:
         magnet_down = signal["magnet_down"]
         target = signal["target"]
         liq_target = signal["liq_target"]
+
+        context = get_market_context(radar)
+        setup_5m = pullback_zone(klines_map["5m"])
+        last_candle_5m = get_last_candle(klines_map["5m"])
+        sniper = sniper_entry(
+            context=context,
+            setup_5m=setup_5m,
+            trap=trap,
+            last_candle=last_candle_5m,
+        )
 
         # =========================
         # TELEGRAM COMMANDS
@@ -422,13 +569,15 @@ while True:
                 radar_msg = (
                     f"🎯 RADAR BTC\n"
                     f"BTC: {price:.2f}\n\n"
-                    + "\n".join(
-                        [f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}" for tf in radar]
-                    )
+                    + "\n".join([f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}" for tf in radar])
                     + f"\n\n📊 Lectura: {interpretation}"
                     + f"\n⚡ Fuerza: {strength}"
                     + f"\n🔁 Rebote probable: {rebound}"
                     + f"\n🪤 Trap: {trap}"
+                    + f"\n🧠 Contexto: {context}"
+                    + f"\n🎯 Pullback EMA21: {'SÍ' if setup_5m['near_ema21'] else 'NO'}"
+                    + f"\n🎯 Pullback EMA50: {'SÍ' if setup_5m['near_ema50'] else 'NO'}"
+                    + f"\n🎯 Sniper: {sniper if sniper else 'esperando'}"
                     + f"\n🎯 Objetivo: {target}"
                     + f"\n📈 Estructura: {structure}"
                     + f"\n🌡️ Estado mercado: {state_market}"
@@ -437,8 +586,79 @@ while True:
                     + f"\n🎯 Liquidez: {liq_target}"
                 )
                 send_telegram(radar_msg)
+            elif cmd in ["/scanalts", "scanalts"]:
+                try:
+                    balances = get_account_balances()
+
+                    lines = ["🛰️ SCAN ALTS PRO\n"]
+
+                    for symbol in WATCHLIST:
+                        signal = analyze_symbol(symbol)
+
+                        if not signal:
+                            continue
+
+                        asset = symbol.replace("USDT", "")
+
+                        has_asset = (
+                            asset in balances and float(balances[asset]["free"]) > 0
+                        )
+
+                        has_base = (
+                            ("USDT" in balances and float(balances["USDT"]["free"]) > 0)
+                            or ("USDC" in balances and float(balances["USDC"]["free"]) > 0)
+                        )
+
+                        lines.append(f"📊 {symbol}")
+                        lines.append(f"Señal: {signal}")
+
+                        if has_asset:
+                            lines.append("💼 Ya tienes posición")
+                            action = "mantener / vigilar"
+
+                        elif has_base and signal == "BUY":
+                            lines.append("💰 Tienes saldo disponible")
+                            action = "posible entrada"
+
+                        else:
+                            action = "sin ventaja clara"
+
+                        lines.append(f"🤖 Acción: {action}\n")
+
+                    send_telegram("\n".join(lines))
+
+                except Exception as e:
+                    send_telegram(f"❌ Error scan: {e}")                
+
+            elif cmd.startswith("/enter"):
+                try:
+                    parts = cmd.split()
+
+                    if len(parts) < 2:
+                        send_telegram("⚠️ Usa: /enter SOL")
+                        continue
+
+                    asset = parts[1].upper()
+                    
+                    # =========================
+                    # FILTRO INTELIGENTE
+                    # =========================
+
+                    signal = analyze_symbol(asset + "USDT")
+
+                    if signal != "BUY":
+                        send_telegram("❌ No hay señal BUY clara")
+                        continue
+
+                    msg = simulate_entry(asset)
+
+                    send_telegram(msg)
+
+                except Exception as e:
+                    send_telegram(f"❌ Error enter: {e}")
 
             elif cmd in ["/trade", "trade"]:
+                
                 wallet_live = load_wallet()
                 trade_live = wallet_live["open_trade"]
 
@@ -516,6 +736,92 @@ while True:
                 )
 
                 send_telegram(wallet_msg)
+                
+            elif cmd in ["/realwallet", "cuenta real"]:
+                try:
+                    balances = get_account_balances()
+
+                    lines = ["💳 CUENTA REAL BINANCE\n"]
+
+                    for asset, data in balances.items():
+                        lines.append(
+                            f"{asset}: libre={data['free']:.8f} | bloqueado={data['locked']:.8f}"
+                        )
+
+                    send_telegram("\n".join(lines))
+                except Exception as e:
+                    send_telegram(f"❌ Error leyendo cuenta real: {e}")   
+
+            elif cmd in ["/balance", "balance"]:
+                try:
+                    balances = get_account_balances()
+
+                    posiciones = []
+
+                    for asset, data in balances.items():
+                        free = float(data["free"])
+
+                        if free <= 0:
+                            continue
+
+                        usdt_value = get_asset_usdt_value(asset, free)
+
+                        posiciones.append(
+                            {
+                                "asset": asset,
+                                "free": free,
+                                "usdt_value": usdt_value,
+                            }
+                        )
+
+                    posiciones.sort(key=lambda x: x["usdt_value"], reverse=True)
+
+                    total_usdt = sum(p["usdt_value"] for p in posiciones)
+
+                    lines = ["💳 RESUMEN CUENTA PRO\n"]
+                    lines.append(f"💰 Total estimado: {total_usdt:.2f} USDT\n")
+
+                    if posiciones:
+                        lines.append("🏆 RANKING ACTIVOS:")
+
+                        for i, p in enumerate(posiciones, start=1):
+                            asset = p["asset"]
+                            free = p["free"]
+                            value = p["usdt_value"]
+                            pct = (value / total_usdt * 100) if total_usdt > 0 else 0
+
+                            if value >= 1:
+                                lines.append(
+                                    f"{i}. {asset}: {free:.6f} ≈ {value:.2f} USDT ({pct:.1f}%)"
+                                )
+                            else:
+                                lines.append(
+                                    f"{i}. {asset}: {free:.6f} ≈ {value:.4f} USDT ({pct:.1f}%)"
+                                )
+
+                    principales = [p for p in posiciones if p["usdt_value"] >= 10]
+                    secundarios = [p for p in posiciones if p["usdt_value"] < 10]
+
+                    if principales:
+                        lines.append("\n💵 PRINCIPALES:")
+                        for p in principales:
+                            pct = (p["usdt_value"] / total_usdt * 100) if total_usdt > 0 else 0
+                            lines.append(
+                                f"{p['asset']}: {p['usdt_value']:.2f} USDT ({pct:.1f}%)"
+                            )
+
+                    if secundarios:
+                        lines.append("\n🪙 SECUNDARIOS:")
+                        for p in secundarios:
+                            pct = (p["usdt_value"] / total_usdt * 100) if total_usdt > 0 else 0
+                            lines.append(
+                                f"{p['asset']}: {p['free']:.6f} ≈ {p['usdt_value']:.4f} USDT ({pct:.1f}%)"
+                            )
+
+                    send_telegram("\n".join(lines))
+
+                except Exception as e:
+                    send_telegram(f"❌ Error balance pro: {e}")      
 
             elif cmd in ["/mode", "modo"]:
                 mode_msg = (
@@ -703,11 +1009,7 @@ while True:
                         )
 
             else:
-                if (
-                    strength == "💪 BUY FUERTE"
-                    and structure.startswith("📈")
-                    and trap != "POSIBLE BARRIDO BAJISTA"
-                ):
+                if sniper == "long":
                     trade = open_long(price)
                     print("Paper LONG abierto:", trade)
 
@@ -715,12 +1017,30 @@ while True:
                         entry_msg = (
                             f"🚨 PAPER LONG ABIERTO\n"
                             f"Modo gestión: {TRADE_MODE}\n"
+                            f"Contexto: {context}\n"
+                            f"Setup: pullback 5m confirmado\n"
                             f"Entrada: {trade['entry']:.2f}\n"
                             f"Stop: {trade['stop']:.2f}\n"
                             f"Balance simulado: {wallet['balance']:.2f}\n"
                             f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}"
                         )
+                        send_telegram(entry_msg)
 
+                elif sniper == "short":
+                    trade = open_short(price)
+                    print("Paper SHORT abierto:", trade)
+
+                    if trade is not None:
+                        entry_msg = (
+                            f"🚨 PAPER SHORT ABIERTO\n"
+                            f"Modo gestión: {TRADE_MODE}\n"
+                            f"Contexto: {context}\n"
+                            f"Setup: pullback 5m confirmado\n"
+                            f"Entrada: {trade['entry']:.2f}\n"
+                            f"Stop: {trade['stop']:.2f}\n"
+                            f"Balance simulado: {wallet['balance']:.2f}\n"
+                            f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}"
+                        )
                         send_telegram(entry_msg)
 
         # =========================
@@ -753,7 +1073,9 @@ while True:
         if now - last_market_run < UPDATE_INTERVAL:
             print("\nBTC RADAR")
             print("------------------")
-            print(f"BTC: {price:.2f}")
+            print("BIAS 4H:", bias_4h)
+            print("COMPRESSION:", compression)  
+            
 
             for tf in radar:
                 print(f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}")

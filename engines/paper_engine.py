@@ -1,6 +1,7 @@
 import json
 import os
 
+
 WALLET_PATH = "data/paper_wallet.json"
 CONTROL_PATH = "data/control.json"
 
@@ -23,7 +24,7 @@ def load_wallet():
     if "balance" not in wallet:
         wallet["balance"] = 0.0
 
-    return wallet
+    return wallet   # ✅ AQUÍ
 
 
 def save_wallet(wallet):
@@ -173,11 +174,21 @@ def update_trade(price):
             if trailing > trade["stop"]:
                 trade["stop"] = trailing
 
+        # trailing extra inteligente
+        profit_abs = price - entry
+        if profit_abs > 0.3:
+            new_stop = round(price - (profit_abs * 0.5), 2)
+            if new_stop > trade["stop"]:
+                trade["stop"] = new_stop
+
         if price <= trade["stop"]:
             pnl = (price - entry) / entry * amount
             wallet["balance"] += pnl
             wallet["open_trade"] = None
             save_wallet(wallet)
+
+            from alerts.telegram_alerts import send_telegram
+            send_telegram("🔒 Trade cerrado por stop inteligente")
 
             return {
                 "closed": True,
@@ -210,11 +221,21 @@ def update_trade(price):
             if trailing < trade["stop"]:
                 trade["stop"] = trailing
 
+        # trailing extra inteligente para short
+        profit_abs = entry - price
+        if profit_abs > 0.3:
+            new_stop = round(price + (profit_abs * 0.5), 2)
+            if new_stop < trade["stop"]:
+                trade["stop"] = new_stop
+
         if price >= trade["stop"]:
             pnl = (entry - price) / entry * amount
             wallet["balance"] += pnl
             wallet["open_trade"] = None
             save_wallet(wallet)
+
+            from alerts.telegram_alerts import send_telegram
+            send_telegram("🔒 Trade cerrado por stop inteligente")
 
             return {
                 "closed": True,
@@ -230,7 +251,6 @@ def update_trade(price):
         "closed": False,
         "current_stop": trade["stop"],
     }
-
 
 def open_long_secondary(price):
     wallet = load_wallet()

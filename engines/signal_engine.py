@@ -5,7 +5,6 @@ from indicators.liquidity import liquidity_levels, liquidity_target, probable_ta
 
 
 def interpret(radar):
-
     if radar["5m"] == "SELL" and radar["15m"] == "BUY" and radar["1h"] == "BUY":
         return "🔧 CORRECCIÓN DENTRO DE TENDENCIA"
 
@@ -19,7 +18,6 @@ def interpret(radar):
 
 
 def signal_strength(radar):
-
     buy_count = list(radar.values()).count("BUY")
     sell_count = list(radar.values()).count("SELL")
 
@@ -39,7 +37,6 @@ def signal_strength(radar):
 
 
 def rebound_probability(radar, rsi_map):
-
     if (
         radar["5m"] == "SELL"
         and radar["15m"] == "BUY"
@@ -55,23 +52,26 @@ def rebound_probability(radar, rsi_map):
 
 
 def build_signal(price, klines_map):
-
     radar = {}
     rsi_map = {}
+    ema_map = {}
 
     for tf, klines in klines_map.items():
-
         closes = [float(k[4]) for k in klines]
 
         ema21 = ema(closes, 21)[-1]
         ema50 = ema(closes, 50)[-1]
-
         rsi_val = rsi(closes)
 
         signal = "BUY" if ema21 > ema50 else "SELL"
 
         radar[tf] = signal
         rsi_map[tf] = round(rsi_val, 1)
+        ema_map[tf] = {
+            "ema21": round(ema21, 2),
+            "ema50": round(ema50, 2),
+            "price": round(closes[-1], 2),
+        }
 
     interpretation = interpret(radar)
     strength = signal_strength(radar)
@@ -83,14 +83,13 @@ def build_signal(price, klines_map):
     state_market = market_state(rsi_map)
 
     magnet_up, magnet_down = liquidity_levels(klines_map["1h"])
-
     target = probable_target(price, radar)
-
     liq_target = liquidity_target(price, magnet_up, magnet_down)
 
     return {
         "radar": radar,
         "rsi": rsi_map,
+        "ema_map": ema_map,
         "interpretation": interpretation,
         "strength": strength,
         "rebound": rebound,
@@ -100,5 +99,5 @@ def build_signal(price, klines_map):
         "magnet_up": magnet_up,
         "magnet_down": magnet_down,
         "target": target,
-        "liq_target": liq_target
+        "liq_target": liq_target,
     }

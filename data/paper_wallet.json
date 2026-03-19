@@ -1,13 +1,12 @@
 {
-  "balance": 941.6439241628349,
+  "balance": 910.698782268081,
   "open_trade": {
     "side": "SHORT",
-    "entry": 74154.44,
-    "amount": 1569.41,
-    "stop": 73846.4,
-    "lowest_price": 73588.84,
-    "status": "open",
-    "take_profit": 73264.58672
+    "entry": 69139.1,
+    "amount": 910.698782268081,
+    "stop": 69381.09,
+    "lowest_price": 69139.1,
+    "status": "open"
   },
   "secondary_trade": {
     "side": "LONG",
