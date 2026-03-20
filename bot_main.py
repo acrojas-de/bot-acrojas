@@ -1384,10 +1384,6 @@ while True:
                 message += (
                     f"\n🧭 ESCENARIO ACTUAL:\n"
                     f"Sin operación abierta\n"
-                    f"Contexto: {context}\n"
-                    f"Sniper: {sniper if sniper else 'esperando'}\n"
-                    f"Rebound: {rebound_signal if rebound_signal else 'esperando'}\n"
-                    f"Entrada final: {entry_signal if entry_signal else 'sin confirmación'}\n"
                     f"Objetivo probable: {target}\n"
                     f"Liquidez: {liq_target}\n"
                     f"Bias 4H: {bias_4h}\n"
