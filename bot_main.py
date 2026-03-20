@@ -1018,7 +1018,38 @@ while True:
         # ========================================
         # 🧠 PAPER TRADING ENGINE
         # ========================================
+        wallet = load_wallet()
+        control = load_control()
+        trade = wallet["open_trade"]
 
+        if trade:
+            entry = trade["entry"]
+            side = trade["side"]
+            stop = trade["stop"]
+
+            if side == "LONG":
+                pnl_pct = (price - entry) / entry * 100
+            else:
+                pnl_pct = (entry - price) / entry * 100
+
+            print("\n📊 TRADE STATUS")
+            print("------------------")
+            print("Modo gestión:", TRADE_MODE)
+            print("Side:", side)
+            print("Entrada:", round(entry, 2))
+            print("Precio actual:", round(price, 2))
+            print("PnL %:", round(pnl_pct, 3))
+            print("Stop actual:", round(stop, 2))
+            print("Estado:", trade.get("status", "open"))
+
+            result = update_trade(price)
+            if result and result.get("closed"):
+                wallet_after = load_wallet()
+
+                balance_after = wallet_after["balance"]
+                balance_before = balance_after - result["pnl"]
+
+                amount_used = trade.get("amount", balance_before)
 
                 if trade["side"] == "LONG":
                     pnl_pct = ((result["exit_price"] - trade["entry"]) / trade["entry"]) * 100
@@ -1061,11 +1092,9 @@ while True:
             and control["allow_new_entries"]
             and current_trade_mode == "AUTO_LEVERAGE"
         ):
-            
             # ========================================
             # 🧪 TEST MODE (5M)
-            # ========================================    
-            
+            # ========================================
             if BOT_MODE == "TEST_5M":
                 last_5m = klines_map["5m"][-2]
                 open_price = float(last_5m[1])
@@ -1107,6 +1136,7 @@ while True:
                             f"Stop: {trade['stop']:.2f}\n"
                             f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                         )
+
             # ========================================
             # 🎯 AUTO ENTRY (SNIPER)
             # ========================================
@@ -1156,200 +1186,201 @@ while True:
                         )
 
                         send_telegram(entry_msg)
-                # ========================================
-                # 🧲 LIQUIDITY ALERTS
-                # ========================================
-                magnet_alert = None
 
-                if magnet_up > 0:
-                    dist_up = (magnet_up - price) / price * 100
-                    if 0 <= dist_up <= 0.3:
-                        magnet_alert = f"🧲 Precio cerca del magneto superior ({magnet_up:.2f})"
+        # ========================================
+        # 🧲 LIQUIDITY ALERTS
+        # ========================================
+        magnet_alert = None
 
-                if magnet_down > 0:
-                    dist_down = (price - magnet_down) / price * 100
-                    if 0 <= dist_down <= 0.3:
-                        magnet_alert = f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
+        if magnet_up > 0:
+            dist_up = (magnet_up - price) / price * 100
+            if 0 <= dist_up <= 0.3:
+                magnet_alert = f"🧲 Precio cerca del magneto superior ({magnet_up:.2f})"
 
-                if magnet_alert:
-                    send_telegram(
-                        f"⚡ ALERTA LIQUIDEZ\n"
-                        f"{magnet_alert}\n"
-                        f"Precio actual: {price:.2f}"
-                    )
+        if magnet_down > 0:
+            dist_down = (price - magnet_down) / price * 100
+            if 0 <= dist_down <= 0.3:
+                magnet_alert = f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
 
-                # =========================
-                # RADAR EN CONSOLA
-                # =========================
-                if now - last_market_run < UPDATE_INTERVAL:
-                    print("\nBTC RADAR")
-                    print("------------------")
-                    print("BIAS 4H:", bias_4h)
-                    print("COMPRESSION:", compression)
+        if magnet_alert:
+            send_telegram(
+                f"⚡ ALERTA LIQUIDEZ\n"
+                f"{magnet_alert}\n"
+                f"Precio actual: {price:.2f}"
+            )
 
-                    for tf in radar:
-                        print(f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}")
+        # ========================================
+        # 📊 RADAR EN CONSOLA
+        # ========================================
+        if now - last_market_run < UPDATE_INTERVAL:
+            print("\nBTC RADAR")
+            print("------------------")
+            print("BIAS 4H:", bias_4h)
+            print("COMPRESSION:", compression)
 
-                    print("LECTURA:", interpretation)
-                    print("FUERZA SEÑAL:", strength)
-                    print("REBOTE PROBABLE:", rebound_probable)
-                    print("TRAP DETECTOR:", trap)
-                    print("OBJETIVO:", target)
-                    print("ESTRUCTURA:", structure)
-                    print("ESTADO MERCADO:", state_market)
-                    print("MAGNETO ARRIBA:", magnet_up)
-                    print("MAGNETO ABAJO:", magnet_down)
-                    print("OBJETIVO LIQUIDEZ:", liq_target)
-                    print("RIESGO BOT:", risk_mode)
-                    print("DIFERENCIA CAPITAL:", capital_diff)
+            for tf in radar:
+                print(f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}")
 
-                state = (
-                    tuple(radar.values()),
-                    strength,
-                    rebound_probable,
-                    trap,
-                    target,
-                    structure,
-                    state_market,
-                    magnet_up,
-                    magnet_down,
-                    liq_target,
-                    risk_mode,
-                    round(capital_diff, 2),
+            print("LECTURA:", interpretation)
+            print("FUERZA SEÑAL:", strength)
+            print("REBOTE PROBABLE:", rebound_probable)
+            print("TRAP DETECTOR:", trap)
+            print("OBJETIVO:", target)
+            print("ESTRUCTURA:", structure)
+            print("ESTADO MERCADO:", state_market)
+            print("MAGNETO ARRIBA:", magnet_up)
+            print("MAGNETO ABAJO:", magnet_down)
+            print("OBJETIVO LIQUIDEZ:", liq_target)
+            print("RIESGO BOT:", risk_mode)
+            print("DIFERENCIA CAPITAL:", capital_diff)
+
+        state = (
+            tuple(radar.values()),
+            strength,
+            rebound_probable,
+            trap,
+            target,
+            structure,
+            state_market,
+            magnet_up,
+            magnet_down,
+            liq_target,
+            risk_mode,
+            round(capital_diff, 2),
+        )
+
+        if state != last_state and (
+            strength in ["💪 BUY FUERTE", "💥 SELL FUERTE"]
+            or risk_mode in ["DANGER", "LOSS_ALERT", "PROFIT_ALERT"]
+        ):
+            message = f"⚡ ACROJAS BTC BOT\n\nBTC: {price:.2f}\n\n"
+
+            wallet_live = load_wallet()
+            live_trade = wallet_live["open_trade"]
+
+            recommendation = "Esperando señal"
+            live_pnl_pct = 0.0
+
+            if live_trade:
+                live_entry = live_trade["entry"]
+                live_side = live_trade["side"]
+                live_stop = live_trade["stop"]
+
+                if live_side == "LONG":
+                    live_pnl_pct = (price - live_entry) / live_entry * 100
+                else:
+                    live_pnl_pct = (live_entry - price) / live_entry * 100
+
+                if live_side == "LONG":
+                    if live_pnl_pct < 0 and structure.startswith("📉"):
+                        recommendation = "❌ Conviene cerrar manualmente"
+                    elif (
+                        structure.startswith("📈")
+                        and "BUY" in strength
+                        and live_pnl_pct >= 0
+                    ):
+                        recommendation = "✅ Conviene mantener"
+                    elif live_pnl_pct > 0 and (
+                        "INDECISO" in interpretation or "SELL" in strength
+                    ):
+                        recommendation = "⚠️ Conviene vigilar / asegurar"
+                    else:
+                        recommendation = "⚠️ Conviene vigilar"
+
+                elif live_side == "SHORT":
+                    if live_pnl_pct < 0 and structure.startswith("📈"):
+                        recommendation = "❌ Conviene cerrar manualmente"
+                    elif (
+                        structure.startswith("📉")
+                        and "SELL" in strength
+                        and live_pnl_pct >= 0
+                    ):
+                        recommendation = "✅ Conviene mantener"
+                    elif live_pnl_pct > 0 and (
+                        "INDECISO" in interpretation or "BUY" in strength
+                    ):
+                        recommendation = "⚠️ Conviene vigilar / asegurar"
+                    else:
+                        recommendation = "⚠️ Conviene vigilar"
+
+            message += f"\n🤖 RECOMENDACIÓN BOT:\n{recommendation}\n"
+
+            balance_now = wallet_live["balance"]
+
+            floating_pnl_amount = 0.0
+            if live_trade:
+                live_amount = live_trade.get("amount", balance_now)
+                floating_pnl_amount = live_amount * (live_pnl_pct / 100)
+
+            equity_estimate = balance_now + floating_pnl_amount
+            diff_vs_base = equity_estimate - CAPITAL_BASE
+
+            if diff_vs_base > 0:
+                account_state = "🟢 EN BENEFICIO"
+            elif diff_vs_base < 0:
+                account_state = "🔴 EN ROJO"
+            else:
+                account_state = "⚪ EN EQUILIBRIO"
+
+            for tf in radar:
+                message += f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}\n"
+
+            message += f"\n📊 LECTURA:\n{interpretation}\n"
+            message += f"\n⚡ FUERZA:\n{strength}\n"
+            message += f"\n🔁 Rebote probable: {rebound_probable}\n"
+            message += f"🪤 Trap detector: {trap}\n"
+            message += f"🎯 Objetivo probable: {target}\n"
+            message += f"📊 Estructura mercado: {structure}\n"
+            message += f"🌡️ Estado mercado: {state_market}\n"
+            message += f"🧲 Magneto arriba: {magnet_up}\n"
+            message += f"🧲 Magneto abajo: {magnet_down}\n"
+            message += f"🎯 Objetivo liquidez: {liq_target}\n"
+            message += f"🛡️ Riesgo bot: {risk_mode}\n"
+            message += f"💰 Diferencia capital: {capital_diff}\n"
+            message += f"\n🛠️ Modo gestión: {current_trade_mode}\n"
+
+            if live_trade:
+                trade_result = (
+                    "🟢 EN GANANCIA"
+                    if live_pnl_pct > 0
+                    else ("🔴 EN PÉRDIDA" if live_pnl_pct < 0 else "⚪ BREAK EVEN")
                 )
 
-                if state != last_state and (
-                    strength in ["💪 BUY FUERTE", "💥 SELL FUERTE"]
-                    or risk_mode in ["DANGER", "LOSS_ALERT", "PROFIT_ALERT"]
-                ):
-                    message = f"⚡ ACROJAS BTC BOT\n\nBTC: {price:.2f}\n\n"
+                message += (
+                    f"\n📊 ESTADO TRADE:\n"
+                    f"Trade: ABIERTO\n"
+                    f"Side: {live_side}\n"
+                    f"Entrada: {live_entry:.2f}\n"
+                    f"Precio actual: {price:.2f}\n"
+                    f"PnL %: {live_pnl_pct:.3f}\n"
+                    f"💰 Resultado trade: {trade_result}\n"
+                    f"Stop actual: {live_stop:.2f}\n"
+                    f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
+                )
+            else:
+                message += (
+                    f"\n📊 ESTADO TRADE:\n"
+                    f"Trade: SIN OPERACIÓN ABIERTA\n"
+                    f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}\n"
+                )
 
-                    wallet_live = load_wallet()
-                    live_trade = wallet_live["open_trade"]
+            message += (
+                f"\n💼 ESTADO CUENTA:\n"
+                f"Balance realizado: {balance_now:.2f}\n"
+                f"PnL flotante: {floating_pnl_amount:.2f}\n"
+                f"Equity estimada: {equity_estimate:.2f}\n"
+                f"Diferencia vs base: {diff_vs_base:.2f}\n"
+                f"Estado cuenta: {account_state}\n"
+            )
 
-                    recommendation = "Esperando señal"
-                    live_pnl_pct = 0.0
+            sent = send_telegram(message)
 
-                    if live_trade:
-                        live_entry = live_trade["entry"]
-                        live_side = live_trade["side"]
-                        live_stop = live_trade["stop"]
+            if sent:
+                print("\n📡 Radar enviado a Telegram")
+            else:
+                print("\n❌ No se pudo enviar a Telegram")
 
-                        if live_side == "LONG":
-                            live_pnl_pct = (price - live_entry) / live_entry * 100
-                        else:
-                            live_pnl_pct = (live_entry - price) / live_entry * 100
-
-                        if live_side == "LONG":
-                            if live_pnl_pct < 0 and structure.startswith("📉"):
-                                recommendation = "❌ Conviene cerrar manualmente"
-                            elif (
-                                structure.startswith("📈")
-                                and "BUY" in strength
-                                and live_pnl_pct >= 0
-                            ):
-                                recommendation = "✅ Conviene mantener"
-                            elif live_pnl_pct > 0 and (
-                                "INDECISO" in interpretation or "SELL" in strength
-                            ):
-                                recommendation = "⚠️ Conviene vigilar / asegurar"
-                            else:
-                                recommendation = "⚠️ Conviene vigilar"
-
-                        elif live_side == "SHORT":
-                            if live_pnl_pct < 0 and structure.startswith("📈"):
-                                recommendation = "❌ Conviene cerrar manualmente"
-                            elif (
-                                structure.startswith("📉")
-                                and "SELL" in strength
-                                and live_pnl_pct >= 0
-                            ):
-                                recommendation = "✅ Conviene mantener"
-                            elif live_pnl_pct > 0 and (
-                                "INDECISO" in interpretation or "BUY" in strength
-                            ):
-                                recommendation = "⚠️ Conviene vigilar / asegurar"
-                            else:
-                                recommendation = "⚠️ Conviene vigilar"
-
-                    message += f"\n🤖 RECOMENDACIÓN BOT:\n{recommendation}\n"
-
-                    balance_now = wallet_live["balance"]
-
-                    floating_pnl_amount = 0.0
-                    if live_trade:
-                        live_amount = live_trade.get("amount", balance_now)
-                        floating_pnl_amount = live_amount * (live_pnl_pct / 100)
-
-                    equity_estimate = balance_now + floating_pnl_amount
-                    diff_vs_base = equity_estimate - CAPITAL_BASE
-
-                    if diff_vs_base > 0:
-                        account_state = "🟢 EN BENEFICIO"
-                    elif diff_vs_base < 0:
-                        account_state = "🔴 EN ROJO"
-                    else:
-                        account_state = "⚪ EN EQUILIBRIO"
-
-                    for tf in radar:
-                        message += f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}\n"
-
-                    message += f"\n📊 LECTURA:\n{interpretation}\n"
-                    message += f"\n⚡ FUERZA:\n{strength}\n"
-                    message += f"\n🔁 Rebote probable: {rebound_probable}\n"
-                    message += f"🪤 Trap detector: {trap}\n"
-                    message += f"🎯 Objetivo probable: {target}\n"
-                    message += f"📊 Estructura mercado: {structure}\n"
-                    message += f"🌡️ Estado mercado: {state_market}\n"
-                    message += f"🧲 Magneto arriba: {magnet_up}\n"
-                    message += f"🧲 Magneto abajo: {magnet_down}\n"
-                    message += f"🎯 Objetivo liquidez: {liq_target}\n"
-                    message += f"🛡️ Riesgo bot: {risk_mode}\n"
-                    message += f"💰 Diferencia capital: {capital_diff}\n"
-                    message += f"\n🛠️ Modo gestión: {current_trade_mode}\n"
-
-                    if live_trade:
-                        trade_result = (
-                            "🟢 EN GANANCIA"
-                            if live_pnl_pct > 0
-                            else ("🔴 EN PÉRDIDA" if live_pnl_pct < 0 else "⚪ BREAK EVEN")
-                        )
-
-                        message += (
-                            f"\n📊 ESTADO TRADE:\n"
-                            f"Trade: ABIERTO\n"
-                            f"Side: {live_side}\n"
-                            f"Entrada: {live_entry:.2f}\n"
-                            f"Precio actual: {price:.2f}\n"
-                            f"PnL %: {live_pnl_pct:.3f}\n"
-                            f"💰 Resultado trade: {trade_result}\n"
-                            f"Stop actual: {live_stop:.2f}\n"
-                            f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
-                        )
-                    else:
-                        message += (
-                            f"\n📊 ESTADO TRADE:\n"
-                            f"Trade: SIN OPERACIÓN ABIERTA\n"
-                            f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}\n"
-                        )
-
-                    message += (
-                        f"\n💼 ESTADO CUENTA:\n"
-                        f"Balance realizado: {balance_now:.2f}\n"
-                        f"PnL flotante: {floating_pnl_amount:.2f}\n"
-                        f"Equity estimada: {equity_estimate:.2f}\n"
-                        f"Diferencia vs base: {diff_vs_base:.2f}\n"
-                        f"Estado cuenta: {account_state}\n"
-                    )
-
-                    sent = send_telegram(message)
-
-                    if sent:
-                        print("\n📡 Radar enviado a Telegram")
-                    else:
-                        print("\n❌ No se pudo enviar a Telegram")
-
-                    last_state = state
+            last_state = state
 
         time.sleep(1)
 
