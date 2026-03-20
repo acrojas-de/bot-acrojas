@@ -298,8 +298,6 @@ while True:
             setup_5m=setup_5m,
             trap=trap,
             last_candle=last_candle_5m,
-            bias_4h=bias_4h,
-            compression=compression,
         )
 
         rebound_signal = rebound_entry(
