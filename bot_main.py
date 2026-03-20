@@ -368,7 +368,37 @@ while True:
                 .replace("🤖", "")
                 .strip()
             )
+            
+        if cmd in ["/history", "history", "historial"]:
+            try:
+                import csv
 
+                with open("trade_history.csv", "r", encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    trades = list(reader)
+
+                if not trades:
+                    send_telegram("📭 No hay historial todavía")
+                    continue
+
+                lines = ["📊 HISTORIAL DE TRADES\n"]
+
+                for t in trades[-10:]:
+                    side = t.get("side", "")
+                    entry = float(t.get("entry", 0) or 0)
+                    exit_price = float(t.get("exit", 0) or 0)
+                    pnl = float(t.get("pnl", 0) or 0)
+
+                    lines.append(
+                        f"{side} | Entry: {entry:.2f} → Exit: {exit_price:.2f} | PnL: {pnl:.2f}"
+                    )
+
+            send_telegram("\n".join(lines))
+
+        except FileNotFoundError:
+            send_telegram("📭 Aún no existe trade_history.csv")
+        except Exception as e:
+            send_telegram(f"❌ Error leyendo historial: {e}")
             # =========================
             # MENU RIESGO
             # =========================
