@@ -1370,12 +1370,6 @@ while True:
             message += f"\n🛠️ Modo gestión: {current_trade_mode}\n"
 
             if live_trade:
-                trade_result = (
-                    "🟢 EN GANANCIA"
-                    if live_pnl_pct > 0
-                    else ("🔴 EN PÉRDIDA" if live_pnl_pct < 0 else "⚪ BREAK EVEN")
-                )
-
                 message += (
                     f"\n📊 ESTADO TRADE:\n"
                     f"Trade: ABIERTO\n"
@@ -1383,15 +1377,21 @@ while True:
                     f"Entrada: {live_entry:.2f}\n"
                     f"Precio actual: {price:.2f}\n"
                     f"PnL %: {live_pnl_pct:.3f}\n"
-                    f"💰 Resultado trade: {trade_result}\n"
                     f"Stop actual: {live_stop:.2f}\n"
-                    f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
+                    f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}\n"
                 )
             else:
                 message += (
-                    f"\n📊 ESTADO TRADE:\n"
-                    f"Trade: SIN OPERACIÓN ABIERTA\n"
-                    f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}\n"
+                    f"\n🧭 ESCENARIO ACTUAL:\n"
+                    f"Sin operación abierta\n"
+                    f"Contexto: {context}\n"
+                    f"Sniper: {sniper if sniper else 'esperando'}\n"
+                    f"Rebound: {rebound_signal if rebound_signal else 'esperando'}\n"
+                    f"Entrada final: {entry_signal if entry_signal else 'sin confirmación'}\n"
+                    f"Objetivo probable: {target}\n"
+                    f"Liquidez: {liq_target}\n"
+                    f"Bias 4H: {bias_4h}\n"
+                    f"Compresión: {compression}\n"
                 )
 
             message += (
