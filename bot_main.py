@@ -1018,6 +1018,8 @@ if trade:
 # ========================================
 # 🧠 PAPER TRADING ENGINE
 # ========================================
+
+
         if trade["side"] == "LONG":
             pnl_pct = ((result["exit_price"] - trade["entry"]) / trade["entry"]) * 100
         else:
@@ -1154,33 +1156,32 @@ elif (
                 )
 
                 send_telegram(entry_msg)
+        # ========================================
+        # 🧲 LIQUIDITY ALERTS
+        # ========================================
+        magnet_alert = None
 
-# ========================================
-# 🧲 LIQUIDITY ALERTS
-# ========================================
-magnet_alert = None
+        if magnet_up > 0:
+            dist_up = (magnet_up - price) / price * 100
+            if 0 <= dist_up <= 0.3:
+                magnet_alert = f"🧲 Precio cerca del magneto superior ({magnet_up:.2f})"
 
-if magnet_up > 0:
-    dist_up = (magnet_up - price) / price * 100
-    if 0 <= dist_up <= 0.3:
-        magnet_alert = f"🧲 Precio cerca del magneto superior ({magnet_up:.2f})"
+        if magnet_down > 0:
+            dist_down = (price - magnet_down) / price * 100
+            if 0 <= dist_down <= 0.3:
+                magnet_alert = f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
 
-if magnet_down > 0:
-    dist_down = (price - magnet_down) / price * 100
-    if 0 <= dist_down <= 0.3:
-        magnet_alert = f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
+        if magnet_alert:
+            send_telegram(
+                f"⚡ ALERTA LIQUIDEZ\n"
+                f"{magnet_alert}\n"
+                f"Precio actual: {price:.2f}"
+            )
 
-if magnet_alert:
-    send_telegram(
-        f"⚡ ALERTA LIQUIDEZ\n"
-        f"{magnet_alert}\n"
-        f"Precio actual: {price:.2f}"
-    )
-
-# =========================
-# RADAR EN CONSOLA
-# =========================
-if now - last_market_run < UPDATE_INTERVAL:
+        # =========================
+        # RADAR EN CONSOLA
+        # =========================
+        if now - last_market_run < UPDATE_INTERVAL:
             print("\nBTC RADAR")
             print("------------------")
             print("BIAS 4H:", bias_4h)
