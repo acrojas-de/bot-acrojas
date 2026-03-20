@@ -393,12 +393,12 @@ while True:
                         f"{side} | Entry: {entry:.2f} → Exit: {exit_price:.2f} | PnL: {pnl:.2f}"
                     )
 
-            send_telegram("\n".join(lines))
+                send_telegram("\n".join(lines))
 
-        except FileNotFoundError:
-            send_telegram("📭 Aún no existe trade_history.csv")
-        except Exception as e:
-            send_telegram(f"❌ Error leyendo historial: {e}")
+            except FileNotFoundError:
+                send_telegram("📭 Aún no existe trade_history.csv")
+            except Exception as e:
+                send_telegram(f"❌ Error leyendo historial: {e}")
             # =========================
             # MENU RIESGO
             # =========================
