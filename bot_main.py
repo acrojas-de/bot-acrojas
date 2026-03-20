@@ -295,14 +295,14 @@ while True:
         setup_5m = pullback_zone(klines_map["5m"])
         last_candle_5m = get_last_candle(klines_map["5m"])
 
-        sniper_entry(
+        sniper = sniper_entry(
             context=context,
             setup_5m=setup_5m,
             trap=trap,
             last_candle=last_candle_5m,
             bias_4h=bias_4h,
         )
-
+       
         rebound_signal = rebound_entry(
             price=price,
             magnet_up=magnet_up,
