@@ -1251,7 +1251,7 @@ while True:
                     f"PnL %: {live_pnl_pct:.3f}\n"
                     f"💰 Resultado trade: {trade_result}\n"
                     f"Stop actual: {live_stop:.2f}\n"
-                    f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}
+                    f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                 )
             else:
                 message += (
