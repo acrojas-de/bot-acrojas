@@ -9,6 +9,7 @@ from alerts.telegram_alerts import (
 from engines.htf_bias_engine import get_htf_bias
 from engines.compression_engine import compression_signal
 from engines.rebound_engine import rebound_entry
+from utils.history_logger import log_trade, log_equity, now_str
 
 import time
 
@@ -252,6 +253,16 @@ while True:
                 floating_pnl_amount = live_amount * (live_pnl_pct / 100)
 
             equity_estimate = current_balance + floating_pnl_amount
+            
+            log_equity({
+                "timestamp": now_str(),
+                "price": price,
+                "balance": current_balance,
+                "open_trade": "YES" if trade_live else "NO",
+                "equity": equity_estimate,
+                "floating_pnl": floating_pnl_amount,
+                "risk_mode": risk_mode if 'risk_mode' in locals() else None,
+            })
 
             klines_map = {}
             for tf in ACTIVE_TIMEFRAMES:
@@ -995,22 +1006,49 @@ while True:
             print("Stop actual:", round(stop, 2))
             print("Estado:", trade.get("status", "open"))
 
-            result = update_trade(price)
-            if result and result.get("closed"):
-                print("Trade cerrado:", result)
+        result = update_trade(price)
+        if result and result.get("closed"):
+            wallet_after = load_wallet()
 
-                wallet_after = load_wallet()
+            balance_after = wallet_after["balance"]
+            balance_before = balance_after - result["pnl"]
 
-                close_msg = (
-                    f"✅ PAPER TRADE CERRADO\n"
-                    f"Modo gestión: {TRADE_MODE}\n"
-                    f"Side: {side}\n"
-                    f"Salida: {result['exit_price']:.2f}\n"
-                    f"PnL: {result['pnl']:.2f}\n"
-                    f"Nuevo balance: {wallet_after['balance']:.2f}"
-                )
+            amount_used = trade.get("amount", balance_before)
 
-                send_telegram(close_msg)
+            if trade["side"] == "LONG":
+                pnl_pct = ((result["exit_price"] - trade["entry"]) / trade["entry"]) * 100
+            else:
+                pnl_pct = ((trade["entry"] - result["exit_price"]) / trade["entry"]) * 100
+
+            log_trade({
+                "timestamp_open": trade.get("timestamp_open"),
+                "timestamp_close": now_str(),
+                "symbol": SYMBOL,
+                "side": trade["side"],
+                "entry": trade["entry"],
+                "exit": result["exit_price"],
+                "amount": amount_used,
+                "pnl": result["pnl"],
+                "pnl_pct": pnl_pct,
+                "stop": trade.get("stop"),
+                "take_profit": trade.get("take_profit"),
+                "reason": result.get("reason", "close"),
+                "balance_before": balance_before,
+                "balance_after": balance_after,
+            })
+
+            print("Trade cerrado:", result)
+
+            close_msg = (
+                f"✅ PAPER TRADE CERRADO\n"
+                f"Modo gestión: {TRADE_MODE}\n"
+                f"Side: {side}\n"
+                f"Salida: {result['exit_price']:.2f}\n"
+                f"PnL: {result['pnl']:.2f}\n"
+                f"Nuevo balance: {wallet_after['balance']:.2f}"
+            )
+
+            send_telegram(close_msg)            
 
         elif (
             manual_order_state is None
@@ -1025,9 +1063,15 @@ while True:
 
                 if close_price > open_price:
                     trade = open_long(price)
-                    print("🧪 TEST MODE LONG:", trade)
 
                     if trade is not None:
+                        wallet_live = load_wallet()
+                        if wallet_live.get("open_trade"):
+                            wallet_live["open_trade"]["timestamp_open"] = now_str()
+                            save_wallet(wallet_live)
+
+                        print("🧪 TEST MODE LONG:", trade)
+
                         send_telegram(
                             f"🧪 TEST LONG\n"
                             f"Modo gestión: {current_trade_mode}\n"
@@ -1041,51 +1085,40 @@ while True:
                     print("🧪 TEST MODE SHORT:", trade)
 
                     if trade is not None:
+                        wallet_live = load_wallet()
+                        if wallet_live.get("open_trade"):
+                            wallet_live["open_trade"]["timestamp_open"] = now_str()
+                            save_wallet(wallet_live)
+
                         send_telegram(
                             f"🧪 TEST SHORT\n"
                             f"Modo gestión: {current_trade_mode}\n"
                             f"Entrada: {trade['entry']:.2f}\n"
                             f"Stop: {trade['stop']:.2f}\n"
                             f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
-                        )
+                        )        
+elif entry_signal == "short":
+    trade = open_short(price)
+    print("Paper SHORT abierto:", trade)
 
-            else:
-                if entry_signal == "long":
-                    trade = open_long(price)
-                    print("Paper LONG abierto:", trade)
+    if trade is not None:
+        wallet_live = load_wallet()
+        if wallet_live.get("open_trade"):
+            wallet_live["open_trade"]["timestamp_open"] = now_str()
+            save_wallet(wallet_live)
 
-                    if trade is not None:
-                        entry_msg = (
-                            f"🚨 PAPER LONG ABIERTO\n"
-                            f"Modo gestión: {TRADE_MODE}\n"
-                            f"Contexto: {context}\n"
-                            f"Setup: sniper={sniper} | rebound={rebound_signal}\n"
-                            f"Entrada: {trade['entry']:.2f}\n"
-                            f"Stop: {trade['stop']:.2f}\n"
-                            f"Balance simulado: {wallet['balance']:.2f}\n"
-                            f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}"
-                        )
-                        send_telegram(entry_msg)
+        entry_msg = (
+            f"🚨 PAPER SHORT ABIERTO\n"
+            f"Modo gestión: {TRADE_MODE}\n"
+            f"Contexto: {context}\n"
+            f"Setup: sniper={sniper} | rebound={rebound_signal}\n"
+            f"Entrada: {trade['entry']:.2f}\n"
+            f"Stop: {trade['stop']:.2f}\n"
+            f"Balance simulado: {wallet['balance']:.2f}\n"
+            f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}"
+        )
 
-                elif entry_signal == "short":
-                    trade = open_short(price)
-                    print("Paper SHORT abierto:", trade)
-
-                    if trade is not None:
-                        entry_msg = (
-                            f"🚨 PAPER SHORT ABIERTO\n"
-                            f"Modo gestión: {TRADE_MODE}\n"
-                            f"Contexto: {context}\n"
-                            f"Setup: sniper={sniper} | rebound={rebound_signal}\n"
-                            f"Entrada: {trade['entry']:.2f}\n"
-                            f"Stop: {trade['stop']:.2f}\n"
-                            f"Balance simulado: {wallet['balance']:.2f}\n"
-                            f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}"
-                        )
-                        send_telegram(entry_msg)
-
-        # =========================
-        # LIQUIDITY MAGNET PROXIMITY
+        send_telegram(entry_msg)
         # =========================
         magnet_alert = None
 
