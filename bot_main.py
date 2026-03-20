@@ -394,11 +394,15 @@ while True:
                     )
 
                 send_telegram("\n".join(lines))
+                continue
 
             except FileNotFoundError:
                 send_telegram("📭 Aún no existe trade_history.csv")
+                continue
+                
             except Exception as e:
                 send_telegram(f"❌ Error leyendo historial: {e}")
+                continue
             # =========================
             # MENU RIESGO
             # =========================
