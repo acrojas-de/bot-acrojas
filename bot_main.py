@@ -1230,7 +1230,7 @@ while True:
             message += f"🎯 Objetivo liquidez: {liq_target}\n"
             message += f"🛡️ Riesgo bot: {risk_mode}\n"
             message += f"💰 Diferencia capital: {capital_diff}\n"
-            message += f"\n🛠️ Modo gestión: {TRADE_MODE}\n"
+            message += f"\n🛠️ Modo gestión: {current_trade_mode}\n"
 
             if live_trade:
                 trade_result = (
@@ -1248,7 +1248,7 @@ while True:
                     f"PnL %: {live_pnl_pct:.3f}\n"
                     f"💰 Resultado trade: {trade_result}\n"
                     f"Stop actual: {live_stop:.2f}\n"
-                    f"Cierre automático: {'SÍ' if TRADE_MODE == 'AUTO_LEVERAGE' else 'NO'}\n"
+                    f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}
                 )
             else:
                 message += (
