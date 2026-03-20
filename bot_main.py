@@ -219,6 +219,11 @@ while True:
         # TELEGRAM: revisión rápida
         # =========================
         commands, last_update_id = read_telegram_commands(last_update_id)
+        # 🔒 ANTI-SPAM TELEGRAM
+        if not commands:
+            time.sleep(1)
+            continue
+        
 
         # =========================
         # MERCADO: solo refresca cada UPDATE_INTERVAL
