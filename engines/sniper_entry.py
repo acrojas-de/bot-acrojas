@@ -27,8 +27,8 @@ def bullish_rejection_candle(candle):
 
     return lower_wick > body * 1.5
 
-
 def sniper_entry(context, setup_5m, trap, last_candle, bias_4h=None, compression=None):
+    print("🔥 sniper_entry NUEVA con bias_4h 🔥")
     near_zone = setup_5m["near_ema21"] or setup_5m["near_ema50"]
 
     if not near_zone:
