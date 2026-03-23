@@ -1,12 +1,16 @@
-from binance.client import Client
 import os
+from binance.client import Client
+
 
 # ======================
 # BINANCE CONFIG
 # ======================
+API_KEY = os.getenv("BINANCE_API_KEY")
+API_SECRET = os.getenv("BINANCE_API_SECRET")
 
-API_KEY = "tuPPjvoVE67BfyVtLJwGzknRTfhDDd9cM7HPHgpI7f4DD2UOmDDyWv5gj3KgKhZt"
-API_SECRET = "1OZKiduwN8qzRLJ4eGeiHcYG9IZei5y1bBlfD221vC0I4zFJWKmGObNUTpmJW1Xf"
+if not API_KEY or not API_SECRET:
+    raise Exception("Faltan claves de Binance en variables de entorno")
+
 
 SYMBOL = "BTCUSDT"
 
@@ -28,8 +32,12 @@ ACTIVE_TIMEFRAMES = ["5m", "15m", "1h", "4h", "1D"]
 # TELEGRAM CONFIG
 # ======================
 
-TELEGRAM_TOKEN = "8400052557:AAEi4rYT9AsN9z0yzQLWbFJbZuetKELv9KY"
-CHAT_ID = "5221399837"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+if not TELEGRAM_TOKEN or not CHAT_ID:
+    raise Exception("Faltan datos de Telegram en variables de entorno")
+
 
 # ======================
 # BOT CONFIG
