@@ -1,14 +1,51 @@
+import time
 import requests
 import config
+
 from engines.paper_engine import load_control
 
 BASE_URL = f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}"
+
+# =========================
+# ANTI-FLOOD / COOLDOWN
+# =========================
+telegram_blocked_until = 0
+
+
+def telegram_available():
+    return time.time() >= telegram_blocked_until
+
+
+def set_telegram_cooldown(seconds):
+    global telegram_blocked_until
+    telegram_blocked_until = time.time() + max(0, int(seconds))
+
+
+def get_telegram_cooldown_left():
+    remaining = int(telegram_blocked_until - time.time())
+    return max(0, remaining)
+
+
+def handle_telegram_rate_limit(response, prefix="Telegram"):
+    global telegram_blocked_until
+
+    if response.status_code != 429:
+        return False
+
+    try:
+        data = response.json()
+        retry_after = data.get("parameters", {}).get("retry_after", 60)
+    except Exception:
+        retry_after = 60
+
+    set_telegram_cooldown(retry_after)
+    print(f"🚫 {prefix} bloqueado por flood. Retry after: {retry_after}s")
+    return True
 
 
 # =========================
 # ESTADO DINÁMICO
 # =========================
-
 def get_current_trade_mode():
     control = load_control()
     return control.get("trade_mode", config.TRADE_MODE)
@@ -29,16 +66,12 @@ def get_mode_leds():
 
 def get_entries_led():
     control = load_control()
-
-    if control.get("allow_new_entries", True):
-        return "🟢"
-    return "🔴"
+    return "🟢" if control.get("allow_new_entries", True) else "🔴"
 
 
 # =========================
 # TECLADO PRINCIPAL
 # =========================
-
 def get_main_keyboard():
     manual_led, auto_led = get_mode_leds()
 
@@ -52,13 +85,13 @@ def get_main_keyboard():
             ["🛠️ Orden manual", "🤖 Modo"],
         ],
         "resize_keyboard": True,
+        "one_time_keyboard": False,
     }
 
 
 # =========================
 # PANEL DE BIENVENIDA
 # =========================
-
 def send_welcome_panel():
     manual_led, auto_led = get_mode_leds()
     entries_led = get_entries_led()
@@ -81,8 +114,12 @@ def send_welcome_panel():
 # =========================
 # ENVÍO DE MENSAJES
 # =========================
-
 def send_telegram(message, keyboard=False):
+    if not telegram_available():
+        wait_left = get_telegram_cooldown_left()
+        print(f"⏳ Telegram en cooldown. Mensaje no enviado. Faltan {wait_left}s")
+        return False
+
     url = f"{BASE_URL}/sendMessage"
 
     payload = {
@@ -94,23 +131,60 @@ def send_telegram(message, keyboard=False):
         payload["reply_markup"] = get_main_keyboard()
 
     try:
-        r = requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=10)
 
-        print("Telegram status:", r.status_code)
-        print("Telegram response:", r.text)
+        print("Telegram status:", response.status_code)
+        print("Telegram response:", response.text)
 
-        return r.status_code == 200
+        if handle_telegram_rate_limit(response, prefix="Telegram"):
+            return False
+
+        return response.status_code == 200
 
     except Exception as e:
         print("Error enviando Telegram:", e)
         return False
 
 
+def send_telegram_image(image_path, caption=None):
+    if not telegram_available():
+        wait_left = get_telegram_cooldown_left()
+        print(f"⏳ Telegram en cooldown. Imagen no enviada. Faltan {wait_left}s")
+        return False
+
+    url = f"{BASE_URL}/sendPhoto"
+
+    try:
+        with open(image_path, "rb") as img:
+            response = requests.post(
+                url,
+                data={
+                    "chat_id": config.CHAT_ID,
+                    "caption": caption or "",
+                },
+                files={"photo": img},
+                timeout=20,
+            )
+
+        print("Telegram image status:", response.status_code)
+        print("Telegram image response:", response.text)
+
+        if handle_telegram_rate_limit(response, prefix="Telegram imagen"):
+            return False
+
+        return response.status_code == 200
+
+    except Exception as e:
+        print("Error enviando imagen:", e)
+        return False
+
+
 # =========================
 # NORMALIZAR BOTONES
 # =========================
-
 def normalize_telegram_command(text):
+    text = (text or "").strip().lower()
+
     mapping = {
         "📊 estado": "/status",
         "🎯 radar": "/radar",
@@ -137,32 +211,37 @@ def normalize_telegram_command(text):
 # =========================
 # LEER COMANDOS
 # =========================
-
 def read_telegram_commands(last_update_id=None):
     url = f"{BASE_URL}/getUpdates"
-
     params = {"timeout": 1}
 
     if last_update_id is not None:
         params["offset"] = last_update_id + 1
 
     try:
-        r = requests.get(url, params=params, timeout=10)
-        data = r.json()
+        response = requests.get(url, params=params, timeout=10)
+        print("Telegram getUpdates status:", response.status_code)
+
+        if response.status_code != 200:
+            print("Telegram getUpdates response:", response.text)
+            return [], last_update_id
+
+        data = response.json()
 
         commands = []
         new_update_id = last_update_id
 
         for result in data.get("result", []):
-            new_update_id = result["update_id"]
+            new_update_id = result.get("update_id", new_update_id)
 
-            if "message" in result and "text" in result["message"]:
-                text = result["message"]["text"].strip().lower()
-                chat_id = str(result["message"]["chat"]["id"])
+            message = result.get("message", {})
+            text = message.get("text")
+            chat = message.get("chat", {})
+            chat_id = str(chat.get("id", ""))
 
-                if chat_id == str(config.CHAT_ID):
-                    text = normalize_telegram_command(text)
-                    commands.append(text)
+            if text and chat_id == str(config.CHAT_ID):
+                normalized = normalize_telegram_command(text)
+                commands.append(normalized)
 
         return commands, new_update_id
 

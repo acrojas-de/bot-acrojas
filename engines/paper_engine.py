@@ -124,6 +124,7 @@ def update_trade(price):
 
     entry = trade["entry"]
     amount = trade.get("amount", wallet["balance"])
+    vibora_mode = trade.get("vibora_mode", False)
 
     if control.get("force_close_trade", False):
         if trade["side"] == "LONG":
@@ -149,6 +150,9 @@ def update_trade(price):
     trailing_stop_pct = control.get("trailing_stop_pct", 0.35)
     break_even_trigger_pct = control.get("break_even_trigger_pct", 0.5)
     stop_loss_pct = control.get("stop_loss_pct", 0.6)
+
+    if vibora_mode:
+        trailing_stop_pct = min(trailing_stop_pct, 0.25)
 
     if trade["side"] == "LONG":
         if "highest_price" not in trade:
@@ -177,7 +181,11 @@ def update_trade(price):
         # trailing extra inteligente
         profit_abs = price - entry
         if profit_abs > 0.3:
-            new_stop = round(price - (profit_abs * 0.5), 2)
+            factor = 0.5
+            if vibora_mode:
+                factor = 0.35
+
+            new_stop = round(price - (profit_abs * factor), 2)
             if new_stop > trade["stop"]:
                 trade["stop"] = new_stop
 
@@ -188,7 +196,12 @@ def update_trade(price):
             save_wallet(wallet)
 
             from alerts.telegram_alerts import send_telegram
-            send_telegram("🔒 Trade cerrado por stop inteligente")
+
+            close_reason = "🔒 Trade cerrado por stop inteligente"
+            if vibora_mode:
+                close_reason = "🐍 VIBORA cerró trade por stop dinámico"
+
+            send_telegram(close_reason)
 
             return {
                 "closed": True,
@@ -224,7 +237,11 @@ def update_trade(price):
         # trailing extra inteligente para short
         profit_abs = entry - price
         if profit_abs > 0.3:
-            new_stop = round(price + (profit_abs * 0.5), 2)
+            factor = 0.5
+            if vibora_mode:
+                factor = 0.35
+
+            new_stop = round(price + (profit_abs * factor), 2)
             if new_stop < trade["stop"]:
                 trade["stop"] = new_stop
 
@@ -235,7 +252,12 @@ def update_trade(price):
             save_wallet(wallet)
 
             from alerts.telegram_alerts import send_telegram
-            send_telegram("🔒 Trade cerrado por stop inteligente")
+
+            close_reason = "🔒 Trade cerrado por stop inteligente"
+            if vibora_mode:
+                close_reason = "🐍 VIBORA cerró trade por stop dinámico"
+
+            send_telegram(close_reason)
 
             return {
                 "closed": True,

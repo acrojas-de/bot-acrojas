@@ -26,7 +26,7 @@ ALL_TIMEFRAMES = {
     "1W": Client.KLINE_INTERVAL_1WEEK
 }
 
-ACTIVE_TIMEFRAMES = ["5m", "15m", "1h", "4h", "1D"]
+ACTIVE_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1D"]
 
 # ======================
 # TELEGRAM CONFIG

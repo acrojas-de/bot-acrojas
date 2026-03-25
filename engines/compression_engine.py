@@ -1,6 +1,6 @@
 def is_compression(closes, threshold=0.002):
     """
-    Detecta si el mercado está comprimido (rango muy pequeño)
+    Detecta si el mercado está comprimido (rango pequeño)
     """
     if len(closes) < 10:
         return False
@@ -11,32 +11,39 @@ def is_compression(closes, threshold=0.002):
 
 def is_explosion(last_candle, threshold=0.0015):
     """
-    Detecta vela fuerte (explosión)
+    Detecta si la última vela tiene cuerpo fuerte
     """
     open_price = float(last_candle[1])
     close_price = float(last_candle[4])
 
     body = abs(close_price - open_price)
-
     return (body / open_price) > threshold
 
 
 def compression_signal(klines_1h):
     """
-    Combina compresión + explosión
+    Devuelve nivel de compresión compatible con bot_main:
+    - 'alta'
+    - 'media'
+    - 'baja'
     """
-    closes = [float(k[4]) for k in klines_1h]
+    try:
+        if not klines_1h or len(klines_1h) < 10:
+            return "baja"
 
-    if is_compression(closes):
+        closes = [float(k[4]) for k in klines_1h]
         last_candle = klines_1h[-1]
 
-        if is_explosion(last_candle):
-            open_price = float(last_candle[1])
-            close_price = float(last_candle[4])
+        compressed = is_compression(closes)
+        explosive = is_explosion(last_candle)
 
-            if close_price > open_price:
-                return "LONG_BREAKOUT"
-            else:
-                return "SHORT_BREAKOUT"
+        if compressed and explosive:
+            return "alta"
+        elif compressed:
+            return "media"
+        else:
+            return "baja"
 
-    return None
+    except Exception as e:
+        print("Error compression_signal:", e)
+        return "baja"
