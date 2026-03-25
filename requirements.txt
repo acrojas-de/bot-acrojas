@@ -2,3 +2,4 @@ python-binance
 requests
 pandas
 numpy
+matplotlib
