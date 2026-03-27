@@ -143,26 +143,28 @@ cached_klines_map = {}
 while True:
     print("🔁 LOOP VIVO")
 
-    # 🔥 TELEGRAM SIEMPRE PRIMERO
-    print("📡 LEYENDO TELEGRAM...")
+    # 🔥 TELEGRAM PRIMERO SIEMPRE
+    print("📩 LEYENDO TELEGRAM...")
     commands, last_update_id = read_telegram_commands(last_update_id)
-    print("📥 COMMANDS RAW:", commands)
+    print("📬 COMMANDS RAW:", commands)
 
     for cmd in commands:
-        raw_cmd = cmd
         cmd = normalize_telegram_command(cmd).strip().lower()
-
         print("CMD:", cmd)
-        
-         # 👇 PONLO AQUÍ
-    if cmd == "hola":
-        send_telegram("👋 Hola máquina, estoy vivo 🚀")
-        continue
+
+        if cmd == "hola":
+            send_telegram("👋 Hola máquina, estoy vivo 🚀")
+            continue
 
         if cmd in ["ranking", "/ranking"]:
             print("ENTRO EN RANKING")
-            try:
-                _, selector_info = get_selected_symbol(
+            msg = "RANKING TEST OK"
+            send_telegram(msg)
+            continue
+
+    # 🔻 AHORA TU LÓGICA DE TRADING
+    try:
+        symbol, selector_info = get_selected_symbol(
                     client=client,
                     watchlist=WATCHLIST,
                     default_symbol=DEFAULT_SYMBOL,
