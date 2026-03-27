@@ -166,22 +166,39 @@ while True:
             print("🔄 Cambio de símbolo:", active_symbol)
 
         commands, last_update_id = read_telegram_commands(last_update_id)
-        
+
         for cmd in commands:
-            cmd = normalize_telegram_command(cmd)
+            raw_cmd = cmd
+            cmd = normalize_telegram_command(cmd).strip().lower()
 
-            if cmd == "ranking":
-                _, selector_info = get_selected_symbol(
-                    client=client,
-                    watchlist=WATCHLIST,
-                    default_symbol=DEFAULT_SYMBOL,
-                    manual_symbol=manual_symbol,
-                )
+            print("CMD RAW:", raw_cmd)
+            print("CMD NORMALIZED:", cmd)
 
-                msg = format_ranking_message(selector_info)
-                send_telegram(msg)
-                continue        
-        
+            if cmd in ["ranking", "/ranking"]:
+                print("ENTRO EN RANKING")
+
+                try:
+                    _, selector_info = get_selected_symbol(
+                        client=client,
+                        watchlist=WATCHLIST,
+                        default_symbol=DEFAULT_SYMBOL,
+                        manual_symbol=manual_symbol,
+                    )
+
+                    print("SELECTOR INFO:", selector_info)
+
+                    msg = format_ranking_message(selector_info)
+                    print("RANKING MSG:", msg)
+
+                    send_telegram(msg)
+                    print("RANKING ENVIADO")
+
+                except Exception as e:
+                    print("ERROR EN RANKING:", e)
+                    traceback.print_exc()
+
+                continue
+
         if not commands:
             commands = []
 
@@ -230,7 +247,7 @@ while True:
             )
 
             klines_map = {}
-            
+
             for tf in ACTIVE_TIMEFRAMES:
                 interval = ALL_TIMEFRAMES[tf]
                 klines_map[tf] = get_klines(active_symbol, interval)
@@ -457,7 +474,7 @@ while True:
         # =========================
         # TELEGRAM COMMANDS
         # =========================
-        for cmd in commands:
+        
             print("📩 CMD RAW:", cmd)
             cmd = normalize_telegram_command(cmd)
             print("📩 CMD NORMALIZADO:", cmd)
