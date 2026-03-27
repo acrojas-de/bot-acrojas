@@ -491,9 +491,10 @@ while True:
             # SELECCIÓN DE ACTIVO (ÓRBITA)
             # =========================
             if cmd.upper() in MARKET_ASSETS:
-                symbol = cmd.upper()
-                last_active_symbol = symbol
-                send_telegram(show_asset_menu(symbol))
+                manual_symbol = cmd.upper()
+                last_active_symbol = manual_symbol
+                print("🎯 MANUAL SYMBOL SET:", manual_symbol)
+                send_telegram(show_asset_menu(manual_symbol))
                 continue
 
             # =========================
