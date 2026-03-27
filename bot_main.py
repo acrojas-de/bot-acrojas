@@ -141,6 +141,33 @@ cached_capital_diff = None
 cached_klines_map = {}
 
 while True:
+    print("🔁 LOOP VIVO")
+
+    # 🔥 TELEGRAM SIEMPRE PRIMERO
+    print("📡 LEYENDO TELEGRAM...")
+    commands, last_update_id = read_telegram_commands(last_update_id)
+    print("📥 COMMANDS RAW:", commands)
+
+    for cmd in commands:
+        raw_cmd = cmd
+        cmd = normalize_telegram_command(cmd).strip().lower()
+
+        print("CMD:", cmd)
+
+        if cmd in ["ranking", "/ranking"]:
+            print("ENTRO EN RANKING")
+            try:
+                _, selector_info = get_selected_symbol(
+                    client=client,
+                    watchlist=WATCHLIST,
+                    default_symbol=DEFAULT_SYMBOL,
+                    manual_symbol=manual_symbol,
+                )
+                msg = format_ranking_message(selector_info)
+                send_telegram(msg)
+            except Exception as e:
+                print("ERROR RANKING:", e)
+
     try:
         symbol, selector_info = get_selected_symbol(
             client=client,
@@ -164,7 +191,8 @@ while True:
             last_market_run = 0
             last_active_symbol = active_symbol
             print("🔄 Cambio de símbolo:", active_symbol)
-
+            
+            print("📡 LEYENDO TELEGRAM...")
         commands, last_update_id = read_telegram_commands(last_update_id)
             print("📥 COMMANDS RAW:", commands) 
         
