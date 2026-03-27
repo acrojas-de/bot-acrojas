@@ -179,6 +179,8 @@ while True:
 
         commands, last_update_id = read_telegram_commands(last_update_id)
 
+        print("📡 COMMANDS RECIBIDOS:", commands)
+
         if not commands:
             commands = []
        
