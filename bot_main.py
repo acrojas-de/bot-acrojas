@@ -205,14 +205,14 @@ while True:
     except Exception as e:
         print("ERROR SELECTOR:", e)
             
-        print("📡 LEYENDO TELEGRAM...")
-            commands, last_update_id = read_telegram_commands(last_update_id)
-        print("📥 COMMANDS RAW:", commands) 
+    print("📡 LEYENDO TELEGRAM...")
+    commands, last_update_id = read_telegram_commands(last_update_id)
+    print("📥 COMMANDS RAW:", commands) 
         
         
-        for cmd in commands:
-            raw_cmd = cmd
-            cmd = normalize_telegram_command(cmd).strip().lower()
+    for cmd in commands:
+        raw_cmd = cmd
+        cmd = normalize_telegram_command(cmd).strip().lower()
 
         print("CMD RAW:", raw_cmd)
         print("CMD NORMALIZED:", cmd)
