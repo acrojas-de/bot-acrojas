@@ -142,7 +142,7 @@ cached_price = None
 cached_signal = None
 cached_risk_mode = None
 cached_capital_diff = None
-cached_klines_map = 
+cached_klines_map = {} 
 
 cached_selector_info = None
 cached_ranking_message = "📊 Ranking aún no disponible"
@@ -186,8 +186,9 @@ while True:
             cmd = normalize_telegram_command(cmd)
 
             if cmd == "ranking":
+                print("⚡ RANKING CACHE ENVIADO")
                 send_telegram(cached_ranking_message)
-                continue   
+                continue
         
 
         price = cached_price
