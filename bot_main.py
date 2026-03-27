@@ -1,5 +1,6 @@
 from binance.client import Client
 import time
+import traceback
 
 from alerts.telegram_alerts import (
     send_telegram,
@@ -1006,17 +1007,17 @@ while True:
 
             wallet = load_wallet()
             control = load_control()
-            trade = wallet["open_trade"]
+            trade = wallet.get("open_trade")
 
             if trade:
                 entry = trade["entry"]
                 side = trade["side"]
                 stop = trade["stop"]
 
-            if side == "LONG":
-                pnl_pct = (price - entry) / entry * 100
-            else:
-                pnl_pct = (entry - price) / entry * 100
+                if side == "LONG":
+                    pnl_pct = (price - entry) / entry * 100
+                else:
+                    pnl_pct = (entry - price) / entry * 100
 
                 print("\n📊 TRADE STATUS")
                 print("------------------")
@@ -1073,7 +1074,7 @@ while True:
                     f"✅ PAPER TRADE CERRADO\n"
                     f"Activo: {active_symbol}\n"
                     f"Modo gestión: {current_trade_mode}\n"
-                    f"Side: {side}\n"
+                    f"Side: {trade['side']}\n"
                     f"Salida: {result['exit_price']:.2f}\n"
                     f"PnL: {result['pnl']:.2f}\n"
                     f"Nuevo balance: {wallet_after['balance']:.2f}"
@@ -1087,7 +1088,7 @@ while True:
                 and control["allow_new_entries"]
                 and current_trade_mode == "AUTO_LEVERAGE"
             ):
-                if BOT_MODE == "TEST_5M":
+                 if BOT_MODE == "TEST_5M":
                     last_5m = klines_map["5m"][-2]
                     candle_open_time = last_5m[0]
                     open_price = float(last_5m[1])
@@ -1255,4 +1256,5 @@ while True:
 
     except Exception as e:
         print("Error:", e)
+        traceback.print_exc()
         time.sleep(2)
