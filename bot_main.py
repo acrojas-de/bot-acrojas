@@ -178,11 +178,28 @@ while True:
             print("🔄 Cambio de símbolo:", active_symbol)
 
         commands, last_update_id = read_telegram_commands(last_update_id)
-
         print("📡 COMMANDS RECIBIDOS:", commands)
 
         if not commands:
             commands = []
+
+        pending_commands = []
+
+        for raw_cmd in commands:
+            print("📩 CMD RAW:", raw_cmd)
+
+            cmd = str(normalize_telegram_command(raw_cmd) or "").strip().lower()
+
+            print("📩 CMD NORMALIZADO:", cmd)
+            print("🔎 CMD DEBUG:", repr(cmd))
+
+            if cmd in ("ranking", "/ranking"):
+                print("⚡ RANKING CACHE ENVIADO")
+                print("📦 CACHE:", repr(cached_ranking_message))
+                send_telegram(cached_ranking_message)
+                continue
+
+            pending_commands.append(cmd)
        
         price = cached_price
         signal = cached_signal
@@ -456,19 +473,8 @@ while True:
         # =========================
         # TELEGRAM COMMANDS
         # =========================
-        for cmd in commands:
-            print("📩 CMD RAW:", cmd)
-
-            cmd = normalize_telegram_command(cmd).strip().lower()
-
-            print("📩 CMD NORMALIZADO:", cmd)
-            print("🔎 CMD DEBUG:", repr(cmd))
-
-            if cmd == "ranking":
-                print("⚡ RANKING CACHE ENVIADO")
-                send_telegram(cached_ranking_message)
-                continue
-                    
+        for cmd in pending_commands:
+                
             # =========================
             # ÓRBITA MENU
             # =========================
