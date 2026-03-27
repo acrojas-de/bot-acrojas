@@ -185,19 +185,6 @@ while True:
             default_symbol=DEFAULT_SYMBOL,
             manual_symbol=manual_symbol,
         )
-        # resto de tu lógica...
-        msg = format_ranking_message(selector_info)
-        send_telegram(msg)
-    except Exception as e:
-        print("ERROR RANKING:", e)
-
-    try:
-        symbol, selector_info = get_selected_symbol(
-            client=client,
-            watchlist=WATCHLIST,
-            default_symbol=DEFAULT_SYMBOL,
-            manual_symbol=manual_symbol,
-        )
 
         print(f"\n🧠 SELECTOR MODE: {selector_info['mode']}")
         print(f"🎯 SYMBOL: {symbol}")
@@ -213,7 +200,10 @@ while True:
             cached_klines_map = {}
             last_market_run = 0
             last_active_symbol = active_symbol
-        print("🔄 Cambio de símbolo:", active_symbol)
+            print("🔄 Cambio de símbolo:", active_symbol)
+
+    except Exception as e:
+        print("ERROR SELECTOR:", e)
             
         print("📡 LEYENDO TELEGRAM...")
             commands, last_update_id = read_telegram_commands(last_update_id)
