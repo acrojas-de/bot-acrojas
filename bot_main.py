@@ -166,7 +166,7 @@ while True:
             print("🔄 Cambio de símbolo:", active_symbol)
 
         commands, last_update_id = read_telegram_commands(last_update_id)
-
+            print("📥 COMMANDS RAW:", commands) 
         
         
         for cmd in commands:
