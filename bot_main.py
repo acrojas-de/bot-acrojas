@@ -77,9 +77,14 @@ def get_active_symbol(current_symbol, manual_symbol):
         klines_limit=120,
         min_score=4,
     )
+    
+    active_symbol = selected_symbol
+    
+    mode = selector_info.get("mode", "unknown")
 
-    print("🧠 Selector mode:", selector_info.get("mode"))
-    print("🎯 Selected symbol:", selected_symbol)
+    print(f"\n🧠 SELECTOR MODE: {mode}")
+    print(f"🎯 SYMBOL: {active_symbol}")
+    print("📝 manual_symbol actual:", manual_symbol)
 
     best = selector_info.get("best")
     if best:
@@ -137,7 +142,10 @@ cached_price = None
 cached_signal = None
 cached_risk_mode = None
 cached_capital_diff = None
-cached_klines_map = {}
+cached_klines_map = 
+
+cached_selector_info = None
+cached_ranking_message = "📊 Ranking aún no disponible"
 
 while True:
     try:
@@ -146,7 +154,12 @@ while True:
             watchlist=WATCHLIST,
             default_symbol=DEFAULT_SYMBOL,
             manual_symbol=manual_symbol,
+            klines_limit=120,
+            min_score=3,
         )
+
+        cached_selector_info = selector_info
+        cached_ranking_message = format_ranking_message(selector_info)
 
         print(f"\n🧠 SELECTOR MODE: {selector_info['mode']}")
         print(f"🎯 SYMBOL: {symbol}")
@@ -165,24 +178,17 @@ while True:
             print("🔄 Cambio de símbolo:", active_symbol)
 
         commands, last_update_id = read_telegram_commands(last_update_id)
-        
+
+        if not commands:
+            commands = []
+
         for cmd in commands:
             cmd = normalize_telegram_command(cmd)
 
             if cmd == "ranking":
-                _, selector_info = get_selected_symbol(
-                    client=client,
-                    watchlist=WATCHLIST,
-                    default_symbol=DEFAULT_SYMBOL,
-                    manual_symbol=manual_symbol,
-                )
-
-                msg = format_ranking_message(selector_info)
-                send_telegram(msg)
-                continue        
+                send_telegram(cached_ranking_message)
+                continue   
         
-        if not commands:
-            commands = []
 
         price = cached_price
         signal = cached_signal
