@@ -243,7 +243,11 @@ def read_telegram_commands(last_update_id=None):
             chat = message.get("chat", {})
             chat_id = str(chat.get("id", ""))
 
-            if text and chat_id == str(config.CHAT_ID):
+            print("TG UPDATE TEXT:", text)
+            print("TG UPDATE CHAT_ID:", chat_id)
+            print("CONFIG CHAT_ID:", str(config.CHAT_ID))
+
+            if text:
                 normalized = normalize_telegram_command(text)
                 commands.append(normalized)
 
