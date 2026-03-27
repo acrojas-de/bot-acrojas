@@ -6,5 +6,5 @@
   "stop_loss_pct": 0.6,
   "trailing_stop_pct": 0.35,
   "break_even_trigger_pct": 0.5,
-  "trade_mode": "MANUAL_SPOT"
+  "trade_mode": "AUTO_LEVERAGE"
 }

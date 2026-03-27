@@ -178,12 +178,20 @@ def update_trade(price):
             if trailing > trade["stop"]:
                 trade["stop"] = trailing
 
-        # trailing extra inteligente
+        # trailing extra inteligente escalonado
         profit_abs = price - entry
-        if profit_abs > 0.3:
-            factor = 0.5
+        if profit_abs > 0:
+            factor = 0.65
+
+            if profit_pct >= 0.5:
+                factor = 0.45
+            if profit_pct >= 1.0:
+                factor = 0.30
+            if profit_pct >= 1.5:
+                factor = 0.20
+
             if vibora_mode:
-                factor = 0.35
+                factor = min(factor, 0.18)
 
             new_stop = round(price - (profit_abs * factor), 2)
             if new_stop > trade["stop"]:
@@ -234,16 +242,24 @@ def update_trade(price):
             if trailing < trade["stop"]:
                 trade["stop"] = trailing
 
-        # trailing extra inteligente para short
+        # trailing extra inteligente escalonado para short
         profit_abs = entry - price
-        if profit_abs > 0.3:
-            factor = 0.5
+        if profit_abs > 0:
+            factor = 0.65
+
+            if profit_pct >= 0.5:
+                factor = 0.45
+            if profit_pct >= 1.0:
+                factor = 0.30
+            if profit_pct >= 1.5:
+                factor = 0.20
+
             if vibora_mode:
-                factor = 0.35
+                factor = min(factor, 0.18)
 
             new_stop = round(price + (profit_abs * factor), 2)
             if new_stop < trade["stop"]:
-                trade["stop"] = new_stop
+                trade["stop"] = new_stop        
 
         if price >= trade["stop"]:
             pnl = (entry - price) / entry * amount

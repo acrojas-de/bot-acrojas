@@ -27,18 +27,15 @@ class MTFEngine:
         return "neutral"
 
     def get_intraday_trigger(self, data_5m, data_1m):
-        if len(data_5m) < 2 or len(data_1m) < 2:
+        if len(data_5m) < 2:
             return "wait"
 
         last_5m = float(data_5m[-1][4])
         prev_5m = float(data_5m[-2][4])
 
-        last_1m = float(data_1m[-1][4])
-        prev_1m = float(data_1m[-2][4])
-
-        if last_5m > prev_5m and last_1m > prev_1m:
+        if last_5m > prev_5m:
             return "long"
-        elif last_5m < prev_5m and last_1m < prev_1m:
+        elif last_5m < prev_5m:
             return "short"
 
         return "wait"

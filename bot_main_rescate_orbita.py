@@ -12,7 +12,6 @@ from config import (
     API_KEY,
     API_SECRET,
     SYMBOL,
-    DEFAULT_SYMBOL,
     ALL_TIMEFRAMES,
     ACTIVE_TIMEFRAMES,
     UPDATE_INTERVAL,
@@ -32,14 +31,11 @@ from engines.context_engine import get_market_context
 from engines.pullback_engine import pullback_zone
 from engines.sniper_entry import get_last_candle, sniper_entry
 from engines.vibora_engine import ViboraEngine
-from engines.smart_hunt_selector import get_selected_symbol, format_ranking_message
+from engines.smart_hunt_selector import get_selected_symbol
 from orbita.config_market import MARKET_ASSETS
-from orbita.router import show_orbita_menu, show_asset_menu
+from orbita.router import show_asset_menu
 
 
-
-manual_symbol = None
-last_test_5m_candle_time = None
 
 from engines.paper_engine import (
     open_long,
@@ -67,28 +63,6 @@ WATCHLIST = [
 
 client = Client(API_KEY, API_SECRET)
 vibora = ViboraEngine(config=None)
-
-def get_active_symbol(current_symbol, manual_symbol):
-    selected_symbol, selector_info = get_selected_symbol(
-        client=client,
-        watchlist=WATCHLIST,
-        default_symbol=current_symbol,
-        manual_symbol=manual_symbol,
-        klines_limit=120,
-        min_score=4,
-    )
-
-    print("🧠 Selector mode:", selector_info.get("mode"))
-    print("🎯 Selected symbol:", selected_symbol)
-
-    best = selector_info.get("best")
-    if best:
-        print(
-            f"🏆 Best: {best['symbol']} | score={best['score']} | "
-            f"1D={best['bias_1d']} | 4H={best['bias_4h']} | 5m={best['trigger_5m']}"
-        )
-
-    return selected_symbol
 
 
 def get_klines(symbol, interval, limit=120):
@@ -139,20 +113,13 @@ cached_risk_mode = None
 cached_capital_diff = None
 cached_klines_map = {}
 
+manual_symbol = None
+last_test_5m_candle_time = None
+
+
 while True:
     try:
-        symbol, selector_info = get_selected_symbol(
-            client=client,
-            watchlist=WATCHLIST,
-            default_symbol=DEFAULT_SYMBOL,
-            manual_symbol=manual_symbol,
-        )
-
-        print(f"\n🧠 SELECTOR MODE: {selector_info['mode']}")
-        print(f"🎯 SYMBOL: {symbol}")
-
-        print("📝 manual_symbol actual:", manual_symbol)
-        active_symbol = symbol
+        active_symbol = get_selected_symbol(SYMBOL, manual_symbol)
 
         if active_symbol != last_active_symbol:
             cached_price = None
@@ -165,22 +132,6 @@ while True:
             print("🔄 Cambio de símbolo:", active_symbol)
 
         commands, last_update_id = read_telegram_commands(last_update_id)
-        
-        for cmd in commands:
-            cmd = normalize_telegram_command(cmd)
-
-            if cmd == "ranking":
-                _, selector_info = get_selected_symbol(
-                    client=client,
-                    watchlist=WATCHLIST,
-                    default_symbol=DEFAULT_SYMBOL,
-                    manual_symbol=manual_symbol,
-                )
-
-                msg = format_ranking_message(selector_info)
-                send_telegram(msg)
-                continue        
-        
         if not commands:
             commands = []
 
@@ -332,97 +283,51 @@ while True:
             intraday_trigger,
         )
 
-        print("\n---- ENTRY DEBUG ----")
-        print("mtf_decision:", mtf_decision)
-        print("structure:", structure)
-        print("compression:", compression)
-        print("sniper:", sniper)
-        print("rebound_signal:", rebound_signal)
-        print("entry_signal:", entry_signal)
+        entry_score = 0
 
-        score_mtf = 0
-        score_structure = 0
-        score_compression = 0
-        score_sniper = 0
-        score_rebound = 0
-        score_entry_signal = 0
+        if mtf_decision == "ENTER LONG":
+            entry_score += 2
+        elif mtf_decision == "ENTER SHORT":
+            entry_score += 2
 
-        # 🔹 MTF
-        if mtf_decision in ["ENTER_LONG", "SCALP"]:
-            score_mtf = 2
-        elif mtf_decision in ["ENTER_SHORT", "SCALP"]:
-            score_mtf = 2
+        if structure.startswith("📈") and mtf_decision == "ENTER LONG":
+            entry_score += 2
+        elif structure.startswith("📉") and mtf_decision == "ENTER SHORT":
+            entry_score += 2
 
-        # 🔹 ESTRUCTURA
-        if structure.startswith("📈") and mtf_decision in ["ENTER_LONG", "SCALP"]:
-            score_structure = 2
-        elif structure.startswith("📉") and mtf_decision in ["ENTER_SHORT", "SCALP"]:
-            score_structure = 2
-
-        # 🔹 COMPRESIÓN
         if compression == "alta":
-            score_compression = 2
+            entry_score += 2
         elif compression == "media":
-            score_compression = 1
+            entry_score += 1
 
-        # 🔹 SNIPER
-        if sniper == "long" and mtf_decision in ["ENTER_LONG", "SCALP"]:
-            score_sniper = 1
-        elif sniper == "short" and mtf_decision in ["ENTER_SHORT", "SCALP"]:
-            score_sniper = 1
+        if sniper == "long" and mtf_decision == "ENTER LONG":
+            entry_score += 1
+        elif sniper == "short" and mtf_decision == "ENTER SHORT":
+            entry_score += 1
 
-        # 🔹 REBOUND
-        if rebound_signal == "long" and mtf_decision in ["ENTER_LONG", "SCALP"]:
-            score_rebound = 1
-        elif rebound_signal == "short" and mtf_decision in ["ENTER_SHORT", "SCALP"]:
-            score_rebound = 1
+        if rebound_signal == "long" and mtf_decision == "ENTER LONG":
+            entry_score += 1
+        elif rebound_signal == "short" and mtf_decision == "ENTER SHORT":
+            entry_score += 1
 
-        # 🔹 ENTRY SIGNAL
-        if entry_signal == "long" and mtf_decision in ["ENTER_LONG", "SCALP"]:
-            score_entry_signal = 1
-        elif entry_signal == "short" and mtf_decision in ["ENTER_SHORT", "SCALP"]:
-            score_entry_signal = 1
-
-        # 🔥 SCORE TOTAL
-        entry_score = (
-            score_mtf +
-            score_structure +
-            score_compression +
-            score_sniper +
-            score_rebound +
-            score_entry_signal
-        )
-
-        print("score_mtf:", score_mtf)
-        print("score_structure:", score_structure)
-        print("score_compression:", score_compression)
-        print("score_sniper:", score_sniper)
-        print("score_rebound:", score_rebound)
-        print("score_entry_signal:", score_entry_signal)
-        print("👉 entry_score:", entry_score)
-
-        # 🎯 DECISIÓN FINAL
-      
-        if mtf_decision == "ENTER_LONG" and entry_score >= 6:
+        if mtf_decision == "ENTER LONG" and entry_score >= 5:
             final_entry = "long"
-        elif mtf_decision == "ENTER_SHORT" and entry_score >= 6:
+        elif mtf_decision == "ENTER SHORT" and entry_score >= 5:
             final_entry = "short"
-        elif mtf_decision == "SCALP" and entry_score >= 6:
-            if entry_signal == "long" or sniper == "long":
-                final_entry = "long"
-            elif entry_signal == "short" or sniper == "short":
-                final_entry = "short"
-            else:
-                final_entry = None
         else:
             final_entry = None
 
-        print("🎯 final_entry:", final_entry)
-        print("----------------------\n")
+        if final_entry is not None:
+            if entry_score < 6:
+                final_entry = None
+            elif compression not in ["alta", "media"]:
+                final_entry = None
+            elif strength not in ["💪 BUY FUERTE", "💥 SELL FUERTE"]:
+                final_entry = None
 
         if final_entry is None:
             print(
-                "🚫 Trade bloqueado | score:",
+                "🚫 Trade bloqueado por filtro PRO | score:",
                 entry_score,
                 "| compression:",
                 compression,
@@ -433,9 +338,9 @@ while True:
         candles_5m = normalize_klines(klines_map["5m"])
 
         vibora_bias = None
-        if mtf_decision == "ENTER_LONG":
+        if mtf_decision == "ENTER LONG":
             vibora_bias = "LONG"
-        elif mtf_decision == "ENTER_SHORT":
+        elif mtf_decision == "ENTER SHORT":
             vibora_bias = "SHORT"
 
         vibora_signal = None
@@ -1013,10 +918,10 @@ while True:
                 side = trade["side"]
                 stop = trade["stop"]
 
-            if side == "LONG":
-                pnl_pct = (price - entry) / entry * 100
+                if side == "LONG":
+                    pnl_pct = (price - entry) / entry * 100
             else:
-                pnl_pct = (entry - price) / entry * 100
+                    pnl_pct = (entry - price) / entry * 100
 
                 print("\n📊 TRADE STATUS")
                 print("------------------")
@@ -1029,57 +934,56 @@ while True:
                 print("Stop actual:", round(stop, 2))
                 print("Estado:", trade.get("status", "open"))
 
-            result = update_trade(price)
+                result = update_trade(price)
+                if result and result.get("closed"):
+                    wallet_after = load_wallet()
 
-            if result and result.get("closed"):
-                wallet_after = load_wallet()
+                    balance_after = wallet_after["balance"]
+                    balance_before = balance_after - result["pnl"]
 
-                balance_after = wallet_after["balance"]
-                balance_before = balance_after - result["pnl"]
+                    amount_used = trade.get("amount", balance_before)
 
-                amount_used = trade.get("amount", balance_before)
+                    if trade["side"] == "LONG":
+                        pnl_pct = (
+                            (result["exit_price"] - trade["entry"]) / trade["entry"]
+                        ) * 100    
+            else:
+                        pnl_pct = (
+                            (trade["entry"] - result["exit_price"]) / trade["entry"]
+                        ) * 100
 
-                if trade["side"] == "LONG":
-                    pnl_pct = (
-                        (result["exit_price"] - trade["entry"]) / trade["entry"]
-                    ) * 100
-                else:
-                    pnl_pct = (
-                        (trade["entry"] - result["exit_price"]) / trade["entry"]
-                    ) * 100
+                    log_trade(
+                        {
+                            "timestamp_open": trade.get("timestamp_open"),
+                            "timestamp_close": now_str(),
+                            "symbol": active_symbol,
+                            "side": trade["side"],
+                            "entry": trade["entry"],
+                            "exit": result["exit_price"],
+                            "amount": amount_used,
+                            "pnl": result["pnl"],
+                            "pnl_pct": pnl_pct,
+                            "stop": trade.get("stop"),
+                            "take_profit": trade.get("take_profit"),
+                            "reason": result.get("reason", "close"),
+                            "balance_before": balance_before,
+                            "balance_after": balance_after,
+                        }
+                    )
 
-                log_trade(
-                    {
-                        "timestamp_open": trade.get("timestamp_open"),
-                        "timestamp_close": now_str(),
-                        "symbol": active_symbol,
-                        "side": trade["side"],
-                        "entry": trade["entry"],
-                        "exit": result["exit_price"],
-                        "amount": amount_used,
-                        "pnl": result["pnl"],
-                        "pnl_pct": pnl_pct,
-                        "stop": trade.get("stop"),
-                        "take_profit": trade.get("take_profit"),
-                        "reason": result.get("reason", "close"),
-                        "balance_before": balance_before,
-                        "balance_after": balance_after,
-                    }
-                )
+                    print("Trade cerrado:", result)
 
-                print("Trade cerrado:", result)
+                    close_msg = (
+                        f"✅ PAPER TRADE CERRADO\n"
+                        f"Activo: {active_symbol}\n"
+                        f"Modo gestión: {current_trade_mode}\n"
+                        f"Side: {side}\n"
+                        f"Salida: {result['exit_price']:.2f}\n"
+                        f"PnL: {result['pnl']:.2f}\n"
+                        f"Nuevo balance: {wallet_after['balance']:.2f}"
+                    )
 
-                close_msg = (
-                    f"✅ PAPER TRADE CERRADO\n"
-                    f"Activo: {active_symbol}\n"
-                    f"Modo gestión: {current_trade_mode}\n"
-                    f"Side: {side}\n"
-                    f"Salida: {result['exit_price']:.2f}\n"
-                    f"PnL: {result['pnl']:.2f}\n"
-                    f"Nuevo balance: {wallet_after['balance']:.2f}"
-                )
-
-                send_telegram(close_msg)
+                    send_telegram(close_msg)        
 
             elif (
                 manual_order_state is None
@@ -1117,7 +1021,7 @@ while True:
                                     f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                                 )
 
-                        elif close_price < open_price:
+            elif close_price < open_price:
                             trade = open_short(price)
 
                             if trade is not None:
@@ -1137,8 +1041,8 @@ while True:
                                     f"Stop: {trade['stop']:.2f}\n"
                                     f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                                 )
-
-                else:
+                
+            else:
                     if final_entry == "long":
                         trade = open_long(price)
 
@@ -1161,9 +1065,9 @@ while True:
                                 f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                             )
 
-                            send_telegram(entry_msg)
+                            send_telegram(entry_msg)    
 
-                    elif final_entry == "short":
+            elif final_entry == "short":
                         trade = open_short(price)
 
                         if trade is not None:
@@ -1185,73 +1089,72 @@ while True:
                                 f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}"
                             )
 
-                            send_telegram(entry_msg)
+                            send_telegram(entry_msg)        
 
-            # =========================
-            # ALERTAS AUTOMÁTICAS DESACTIVADAS
-            # =========================
-            magnet_alert = None
+                # =========================
+                # ALERTAS AUTOMÁTICAS DESACTIVADAS
+                # =========================
+                magnet_alert = None
 
-            if magnet_up > 0:
-                dist_up = (magnet_up - price) / price * 100
-                if 0 <= dist_up <= 0.3:
-                    magnet_alert = f"🧲 Precio cerca del magneto superior ({magnet_up:.2f})"
+                if magnet_up > 0:
+                    dist_up = (magnet_up - price) / price * 100
+                    if 0 <= dist_up <= 0.3:
+                        magnet_alert = f"🧲 Precio cerca del magneto superior ({magnet_up:.2f})"
 
-            if magnet_down > 0:
-                dist_down = (price - magnet_down) / price * 100
-                if 0 <= dist_down <= 0.3:
-                    magnet_alert = f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
+                if magnet_down > 0:
+                    dist_down = (price - magnet_down) / price * 100
+                    if 0 <= dist_down <= 0.3:
+                        magnet_alert = f"🧲 Precio cerca del magneto inferior ({magnet_down:.2f})"
 
-            if magnet_alert:
-                print("ALERTA LIQUIDEZ:", magnet_alert)
+                if magnet_alert:
+                    print("ALERTA LIQUIDEZ:", magnet_alert)
 
-            print(f"\n{active_symbol} RADAR")
-            print("------------------")
-            print("BIAS 4H:", bias_4h)
-            print("COMPRESSION:", compression or "desconocido")
+                print(f"\n{active_symbol} RADAR")
+                print("------------------")
+                print("BIAS 4H:", bias_4h)
+                print("COMPRESSION:", compression or "desconocido")
 
-            for tf in radar:
-                print(f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}")
+                for tf in radar:
+                    print(f"{tf} → {radar[tf]} | RSI {rsi_map[tf]}")
 
-            print("LECTURA:", interpretation)
-            print("FUERZA SEÑAL:", strength)
-            print("REBOTE PROBABLE:", rebound_probable)
-            print("TRAP DETECTOR:", trap)
-            print("OBJETIVO:", target)
-            print("ESTRUCTURA:", structure)
-            print("ESTADO MERCADO:", state_market)
-            print("MAGNETO ARRIBA:", magnet_up)
-            print("MAGNETO ABAJO:", magnet_down)
-            print("OBJETIVO LIQUIDEZ:", liq_target)
-            print("RIESGO BOT:", risk_mode)
-            print("DIFERENCIA CAPITAL:", capital_diff)
-            print("\n🌍 MTF ENGINE:")
-            print("------------------")
-            print("Bias mensual:", monthly_bias)
-            print("Bias semanal:", weekly_bias)
-            print("Trigger:", intraday_trigger)
-            print("Decisión:", mtf_decision)
+                print("LECTURA:", interpretation)
+                print("FUERZA SEÑAL:", strength)
+                print("REBOTE PROBABLE:", rebound_probable)
+                print("TRAP DETECTOR:", trap)
+                print("OBJETIVO:", target)
+                print("ESTRUCTURA:", structure)
+                print("ESTADO MERCADO:", state_market)
+                print("MAGNETO ARRIBA:", magnet_up)
+                print("MAGNETO ABAJO:", magnet_down)
+                print("OBJETIVO LIQUIDEZ:", liq_target)
+                print("RIESGO BOT:", risk_mode)
+                print("DIFERENCIA CAPITAL:", capital_diff)
+                print("\n🌍 MTF ENGINE:")
+                print("------------------")
+                print("Bias mensual:", monthly_bias)
+                print("Bias semanal:", weekly_bias)
+                print("Trigger:", intraday_trigger)
+                print("Decisión:", mtf_decision)
 
-            state = (
-                active_symbol,
-                tuple(radar.values()),
-                strength,
-                rebound_probable,
-                trap,
-                target,
-                structure,
-                state_market,
-                magnet_up,
-                magnet_down,
-                liq_target,
-                risk_mode,
-                round(capital_diff, 2) if capital_diff is not None else None,
-            )
+                state = (
+                    active_symbol,
+                    tuple(radar.values()),
+                    strength,
+                    rebound_probable,
+                    trap,
+                    target,
+                    structure,
+                    state_market,
+                    magnet_up,
+                    magnet_down,
+                    liq_target,
+                    risk_mode,
+                    round(capital_diff, 2) if capital_diff is not None else None,
+                )
 
-            last_state = state
+                last_state = state
 
-            time.sleep(1)    
-
+                time.sleep(1)
 
     except Exception as e:
         print("Error:", e)
