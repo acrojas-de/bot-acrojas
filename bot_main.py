@@ -186,10 +186,10 @@ while True:
             manual_symbol=manual_symbol,
         )
         # resto de tu lógica...
-                msg = format_ranking_message(selector_info)
-                send_telegram(msg)
-            except Exception as e:
-                print("ERROR RANKING:", e)
+        msg = format_ranking_message(selector_info)
+        send_telegram(msg)
+    except Exception as e:
+        print("ERROR RANKING:", e)
 
     try:
         symbol, selector_info = get_selected_symbol(
