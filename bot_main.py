@@ -179,7 +179,8 @@ while True:
         for raw_cmd in commands:
             print("📩 CMD RAW:", raw_cmd)
 
-            cmd = str(normalize_telegram_command(raw_cmd) or "").strip().lower()
+            cmd = str(raw_cmd).strip().lower()
+            print("🔎 CMD FINAL LIMPIO:", repr(cmd))
 
             print("📩 CMD NORMALIZADO:", cmd)
             print("🔎 CMD DEBUG:", repr(cmd))
