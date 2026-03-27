@@ -337,6 +337,22 @@ while True:
 
                 send_telegram(trade_msg)
                 continue
+                
+             # RADAR
+            if "radar" in cmd:
+                send_telegram("🎯 Radar recibido")
+                continue
+
+            # ORDEN MANUAL
+            if "orden" in cmd:
+                send_telegram("🛠️ Orden manual recibida")
+                continue
+
+            # RIESGO
+            if "riesgo" in cmd:
+                send_telegram("⚙️ Panel de riesgo recibido")
+                continue   
+                
 
             # WALLET
             if cmd in ["/wallet", "cuenta"]:
