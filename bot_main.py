@@ -213,19 +213,19 @@ while True:
             cached_klines_map = {}
             last_market_run = 0
             last_active_symbol = active_symbol
-            print("🔄 Cambio de símbolo:", active_symbol)
+        print("🔄 Cambio de símbolo:", active_symbol)
             
-            print("📡 LEYENDO TELEGRAM...")
-        commands, last_update_id = read_telegram_commands(last_update_id)
-            print("📥 COMMANDS RAW:", commands) 
+        print("📡 LEYENDO TELEGRAM...")
+            commands, last_update_id = read_telegram_commands(last_update_id)
+        print("📥 COMMANDS RAW:", commands) 
         
         
         for cmd in commands:
             raw_cmd = cmd
             cmd = normalize_telegram_command(cmd).strip().lower()
 
-            print("CMD RAW:", raw_cmd)
-            print("CMD NORMALIZED:", cmd)
+        print("CMD RAW:", raw_cmd)
+        print("CMD NORMALIZED:", cmd)
 
             # =========================
             # RANKING
