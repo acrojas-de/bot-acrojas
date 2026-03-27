@@ -217,10 +217,10 @@ def normalize_telegram_command(text):
 # =========================
 def read_telegram_commands(last_update_id=None):
     url = f"{BASE_URL}/getUpdates"
-    params = {"timeout": 1}
 
-    if last_update_id is not None:
-        params["offset"] = last_update_id + 1
+    # RESET TEMPORAL PARA DEBUG
+    # Así evitamos que un offset viejo se coma los mensajes.
+    params = {}
 
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -231,6 +231,7 @@ def read_telegram_commands(last_update_id=None):
             return [], last_update_id
 
         data = response.json()
+        print("🔥 TELEGRAM RAW RESPONSE:", data)
 
         commands = []
         new_update_id = last_update_id
@@ -251,6 +252,7 @@ def read_telegram_commands(last_update_id=None):
                 normalized = normalize_telegram_command(text)
                 commands.append(normalized)
 
+        print("📥 COMMANDS FINAL:", commands)
         return commands, new_update_id
 
     except Exception as e:
