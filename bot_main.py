@@ -68,15 +68,6 @@ WATCHLIST = [
 client = Client(API_KEY, API_SECRET)
 vibora = ViboraEngine(config=None)
 
-def get_active_symbol(current_symbol, manual_symbol):
-    selected_symbol, selector_info = get_selected_symbol(
-        client=client,
-        watchlist=WATCHLIST,
-        default_symbol=current_symbol,
-        manual_symbol=manual_symbol,
-        klines_limit=120,
-        min_score=4,
-    )
     
     active_symbol = selected_symbol
     
@@ -161,10 +152,10 @@ while True:
         cached_selector_info = selector_info
         cached_ranking_message = format_ranking_message(selector_info)
 
-        print(f"\n🧠 SELECTOR MODE: {selector_info['mode']}")
+        print(f"\n🧠 SELECTOR MODE: {selector_info.get('mode', 'unknown')}")
         print(f"🎯 SYMBOL: {symbol}")
-
         print("📝 manual_symbol actual:", manual_symbol)
+
         active_symbol = symbol
 
         if active_symbol != last_active_symbol:
@@ -200,7 +191,7 @@ while True:
                 continue
 
             pending_commands.append(cmd)
-       
+
         price = cached_price
         signal = cached_signal
         risk_mode = cached_risk_mode
@@ -246,7 +237,7 @@ while True:
             )
 
             klines_map = {}
-            
+
             for tf in ACTIVE_TIMEFRAMES:
                 interval = ALL_TIMEFRAMES[tf]
                 klines_map[tf] = get_klines(active_symbol, interval)
