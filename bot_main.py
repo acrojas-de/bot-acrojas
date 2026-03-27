@@ -181,16 +181,7 @@ while True:
 
         if not commands:
             commands = []
-
-        for cmd in commands:
-            cmd = normalize_telegram_command(cmd)
-
-            if cmd == "ranking":
-                print("⚡ RANKING CACHE ENVIADO")
-                send_telegram(cached_ranking_message)
-                continue
-        
-
+       
         price = cached_price
         signal = cached_signal
         risk_mode = cached_risk_mode
@@ -467,7 +458,12 @@ while True:
             print("📩 CMD RAW:", cmd)
             cmd = normalize_telegram_command(cmd)
             print("📩 CMD NORMALIZADO:", cmd)
-
+            
+            if cmd == "ranking":
+                print("⚡ RANKING CACHE ENVIADO")
+                send_telegram(cached_ranking_message)
+                continue
+                    
             # =========================
             # ÓRBITA MENU
             # =========================
