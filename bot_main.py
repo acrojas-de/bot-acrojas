@@ -339,17 +339,17 @@ while True:
                 continue
                 
              # RADAR
-            if "radar" in cmd:
+            if cmd in ["radar", "/radar"]:
                 send_telegram("🎯 Radar recibido")
                 continue
 
             # ORDEN MANUAL
-            if "orden" in cmd:
+            if cmd in ["orden manual", "/manual_order"]:
                 send_telegram("🛠️ Orden manual recibida")
                 continue
 
             # RIESGO
-            if "riesgo" in cmd:
+            if cmd in ["riesgo", "/risk"]:
                 send_telegram("⚙️ Panel de riesgo recibido")
                 continue   
                 
