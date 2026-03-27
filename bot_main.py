@@ -175,8 +175,10 @@ while True:
 
             print("CMD RAW:", raw_cmd)
             print("CMD NORMALIZED:", cmd)
-            print("DEBUG CMD:", repr(cmd))
 
+            # =========================
+            # RANKING
+            # =========================
             if cmd in ["ranking", "/ranking"]:
                 print("ENTRO EN RANKING")
 
@@ -188,18 +190,33 @@ while True:
                         manual_symbol=manual_symbol,
                     )
 
-                    print("SELECTOR INFO:", selector_info)
-
                     msg = format_ranking_message(selector_info)
-                    print("RANKING MSG:", msg)
-
                     send_telegram(msg)
-                    print("RANKING ENVIADO")
 
                 except Exception as e:
                     print("ERROR EN RANKING:", e)
-                    traceback.print_exc()
 
+                continue
+
+            # =========================
+            # ÓRBITA MENU
+            # =========================
+            if cmd in ["/orbita", "orbita"]:
+                from orbita.router import show_orbita_menu
+                send_telegram(show_orbita_menu())
+                continue
+
+            # =========================
+            # SELECCIÓN DE ACTIVO
+            # =========================
+            if cmd.upper() in MARKET_ASSETS:
+                manual_symbol = cmd.upper()
+                last_active_symbol = manual_symbol
+
+                print("🎯 MANUAL SYMBOL SET:", manual_symbol)
+
+                from orbita.router import show_asset_menu
+                send_telegram(show_asset_menu(manual_symbol))
                 continue
 
         if not commands:
