@@ -218,16 +218,14 @@ def normalize_telegram_command(text):
 def read_telegram_commands(last_update_id=None):
     url = f"{BASE_URL}/getUpdates"
 
-    # RESET TEMPORAL PARA DEBUG
-    params = {}
+    params = {"timeout": 1}
+
+    if last_update_id is not None:
+        params["offset"] = last_update_id + 1
 
     try:
         response = requests.get(url, params=params, timeout=10)
         print("Telegram getUpdates status:", response.status_code)
-
-        if response.status_code != 200:
-            print("Telegram getUpdates response:", response.text)
-            return [], last_update_id
 
         data = response.json()
         print("🔥 TELEGRAM RAW RESPONSE:", data)
@@ -236,22 +234,19 @@ def read_telegram_commands(last_update_id=None):
         new_update_id = last_update_id
 
         for result in data.get("result", []):
-            new_update_id = result.get("update_id", new_update_id)
+            update_id = result.get("update_id")
+            new_update_id = update_id
 
             message = result.get("message", {})
             text = message.get("text")
-            chat = message.get("chat", {})
-            chat_id = str(chat.get("id", ""))
 
-            print("TG UPDATE TEXT:", text)
-            print("TG UPDATE CHAT_ID:", chat_id)
-            print("CONFIG CHAT_ID:", str(config.CHAT_ID))
+            print("📩 TEXT RECIBIDO:", text)
 
             if text:
-                normalized = normalize_telegram_command(text)
-                commands.append(normalized)
+                commands.append(text)  # 🔥 SIN NORMALIZAR AQUÍ
 
         print("📥 COMMANDS FINAL:", commands)
+
         return commands, new_update_id
 
     except Exception as e:
