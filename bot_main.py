@@ -203,11 +203,14 @@ while True:
                         default_symbol=DEFAULT_SYMBOL,
                         manual_symbol=manual_symbol,
                     )
+
                     msg = format_ranking_message(selector_info)
                     send_telegram(msg)
+
                 except Exception as e:
                     print("ERROR EN RANKING:", e)
-                continue
+
+                continue            
 
             # ÓRBITA MENU
             if cmd in ["/orbita", "orbita"]:

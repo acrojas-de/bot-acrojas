@@ -219,21 +219,29 @@ def normalize_telegram_command(text):
 # =========================
 def read_telegram_commands(last_update_id=None):
     url = f"{BASE_URL}/getUpdates"
-    params = {
-        "timeout": 1,
-        "offset": 0,  # 🔥 FORZAMOS A LEER TODO
-    }
+    params = {"timeout": 1}
+
+    if last_update_id is not None:
+        params["offset"] = last_update_id + 1
 
     try:
         response = requests.get(url, params=params, timeout=10)
         print("Telegram getUpdates status:", response.status_code)
 
+        if response.status_code != 200:
+            print("Telegram getUpdates response:", response.text)
+            return [], last_update_id
+
         data = response.json()
-        print("🔥 RAW TELEGRAM DATA:", data)  # 👈 ESTA ES LA CLAVE
+        print("RAW TELEGRAM DATA:", data)
 
         commands = []
+        new_update_id = last_update_id
 
         for result in data.get("result", []):
+            update_id = result.get("update_id")
+            new_update_id = update_id
+
             message = result.get("message", {})
             text = message.get("text")
 
@@ -243,7 +251,7 @@ def read_telegram_commands(last_update_id=None):
                 commands.append(text)
 
         print("📥 COMMANDS FINAL:", commands)
-        return commands, last_update_id
+        return commands, new_update_id
 
     except Exception as e:
         print("Error leyendo comandos Telegram:", e)
