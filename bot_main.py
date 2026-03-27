@@ -153,6 +153,11 @@ while True:
         cmd = normalize_telegram_command(cmd).strip().lower()
 
         print("CMD:", cmd)
+        
+         # 👇 PONLO AQUÍ
+    if cmd == "hola":
+        send_telegram("👋 Hola máquina, estoy vivo 🚀")
+        continue
 
         if cmd in ["ranking", "/ranking"]:
             print("ENTRO EN RANKING")
