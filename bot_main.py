@@ -458,9 +458,12 @@ while True:
         # =========================
         for cmd in commands:
             print("📩 CMD RAW:", cmd)
-            cmd = normalize_telegram_command(cmd)
+
+            cmd = normalize_telegram_command(cmd).strip().lower()
+
             print("📩 CMD NORMALIZADO:", cmd)
-            
+            print("🔎 CMD DEBUG:", repr(cmd))
+
             if cmd == "ranking":
                 print("⚡ RANKING CACHE ENVIADO")
                 send_telegram(cached_ranking_message)
