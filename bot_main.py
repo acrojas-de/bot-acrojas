@@ -404,7 +404,7 @@ while True:
 
         # 🎯 DECISIÓN FINAL
       
-        if mtf_decision == "ENTER_LONG" and entry_score >= 6:
+        if mtf_decision == "ENTER_LONG" and entry_score >= 4:
             final_entry = "long"
         elif mtf_decision == "ENTER_SHORT" and entry_score >= 6:
             final_entry = "short"
