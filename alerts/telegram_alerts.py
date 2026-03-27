@@ -1,3 +1,5 @@
+print("🔥 SI VES ESTO, EL CÓDIGO ES NUEVO 🔥")
+
 import time
 import requests
 import config
