@@ -167,12 +167,15 @@ while True:
 
         commands, last_update_id = read_telegram_commands(last_update_id)
 
+        
+        
         for cmd in commands:
             raw_cmd = cmd
             cmd = normalize_telegram_command(cmd).strip().lower()
 
             print("CMD RAW:", raw_cmd)
             print("CMD NORMALIZED:", cmd)
+            print("DEBUG CMD:", repr(cmd))
 
             if cmd in ["ranking", "/ranking"]:
                 print("ENTRO EN RANKING")
@@ -477,6 +480,8 @@ while True:
         
             print("📩 CMD RAW:", cmd)
             cmd = normalize_telegram_command(cmd)
+            cmd = cmd.strip().lower()
+            print("DEBUG CMD:", repr(cmd))
             print("📩 CMD NORMALIZADO:", cmd)
 
             # =========================
@@ -490,6 +495,9 @@ while True:
             # =========================
             # SELECCIÓN DE ACTIVO (ÓRBITA)
             # =========================
+            print("DEBUG MARKET CMD:", repr(cmd))
+            print("DEBUG MARKET LIST:", MARKET_ASSETS)
+
             if cmd.upper() in MARKET_ASSETS:
                 manual_symbol = cmd.upper()
                 last_active_symbol = manual_symbol
