@@ -143,13 +143,14 @@ cached_klines_map = {}
 while True:
     print("🔁 LOOP VIVO")
 
-    # 🔥 TELEGRAM PRIMERO SIEMPRE
     print("📩 LEYENDO TELEGRAM...")
     commands, last_update_id = read_telegram_commands(last_update_id)
     print("📬 COMMANDS RAW:", commands)
 
     for cmd in commands:
+        raw_cmd = cmd
         cmd = normalize_telegram_command(cmd).strip().lower()
+
         print("CMD:", cmd)
 
         if cmd == "hola":
@@ -157,19 +158,34 @@ while True:
             continue
 
         if cmd in ["ranking", "/ranking"]:
-            print("ENTRO EN RANKING")
-            msg = "RANKING TEST OK"
+            _, selector_info = get_selected_symbol(
+                client=client,
+                watchlist=WATCHLIST,
+                default_symbol=DEFAULT_SYMBOL,
+                manual_symbol=manual_symbol,
+            )
+            msg = format_ranking_message(selector_info)
             send_telegram(msg)
             continue
 
-    # 🔻 AHORA TU LÓGICA DE TRADING
+        if cmd in ["/orbita", "orbita"]:
+            send_telegram(show_orbita_menu())
+            continue
+
+        if cmd.upper() in MARKET_ASSETS:
+            manual_symbol = cmd.upper()
+            last_active_symbol = manual_symbol
+            send_telegram(show_asset_menu(manual_symbol))
+            continue
+
     try:
         symbol, selector_info = get_selected_symbol(
-                    client=client,
-                    watchlist=WATCHLIST,
-                    default_symbol=DEFAULT_SYMBOL,
-                    manual_symbol=manual_symbol,
-                )
+            client=client,
+            watchlist=WATCHLIST,
+            default_symbol=DEFAULT_SYMBOL,
+            manual_symbol=manual_symbol,
+        )
+        # resto de tu lógica...
                 msg = format_ranking_message(selector_info)
                 send_telegram(msg)
             except Exception as e:
