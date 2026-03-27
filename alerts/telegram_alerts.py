@@ -219,7 +219,6 @@ def read_telegram_commands(last_update_id=None):
     url = f"{BASE_URL}/getUpdates"
 
     # RESET TEMPORAL PARA DEBUG
-    # Así evitamos que un offset viejo se coma los mensajes.
     params = {}
 
     try:
