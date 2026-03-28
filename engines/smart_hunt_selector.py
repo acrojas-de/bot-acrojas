@@ -172,19 +172,49 @@ def get_selected_symbol(
     
 def format_ranking_message(selector_info):
     ranking = selector_info.get("ranking", [])
-    mode = selector_info.get("mode")
-    symbol = selector_info.get("symbol")
+    mode = selector_info.get("mode", "-")
+    symbol = selector_info.get("symbol", "-")
+
+    if not ranking:
+        return "📭 No hay ranking disponible"
 
     msg = "📊 RANKING WATCHLIST\n\n"
 
     for i, r in enumerate(ranking[:5], 1):
-        msg += f"{i}. {r['symbol']} → {r['score']}\n"
+        score = r.get("score", 0)
+        bias_1d = r.get("bias_1d", "-")
+        bias_4h = r.get("bias_4h", "-")
+        trigger_5m = r.get("trigger_5m", "-")
+        compression = r.get("compression", "-")
+        strength = r.get("strength", "-")
+        structure = r.get("structure", "-")
+
+        # =========================
+        # ESTADO OPERATIVO (SEMÁFORO)
+        # =========================
+        if score >= 6:
+            status = "🟢 OPERABLE"
+        elif score >= 3:
+            status = "🟡 VIGILAR"
+        else:
+            status = "🔴 NO OPERAR"
+
+        msg += (
+            f"{i}. {r['symbol']} | score: {score} | {status}\n"
+            f"   1D: {bias_1d} | 4H: {bias_4h} | 5m: {trigger_5m}\n"
+            f"   Compresión: {compression} | Fuerza: {strength}\n"
+            f"   Estructura: {structure}\n"
+        )
+
         reasons = r.get("reasons", [])
-        for reason in reasons:
-            msg += f"   - {reason}\n"
+        if reasons:
+            for reason in reasons[:3]:
+                msg += f"   - {reason}\n"
+
         msg += "\n"
 
-    msg += f"🧠 Modo: {mode}\n"
+    msg += f"🧠 Modo selector: {mode}\n"
     msg += f"🎯 Activo actual: {symbol}\n"
+    msg += "👉 Usa /select BTCUSDT o /select 1\n"
 
-    return msg    
+    return msg
