@@ -294,6 +294,54 @@ while True:
             print("CMD RAW:", raw_cmd)
             print("CMD NORMALIZED:", cmd)
 
+            # ============================================================
+            # PRIORIDAD: RESPUESTA ORDEN MANUAL
+            # ============================================================
+            if manual_order_state == "suggestion":
+                print("🧪 DETECTADO ESTADO MANUAL ORDER")
+                print("🧪 cmd:", cmd)
+
+                if cmd in ["1", "/execute", "ejecutar"]:
+                    print("🧪 EJECUTANDO ORDEN MANUAL")
+
+                    entry_price = manual_order_data["price"]
+                    side_manual = manual_order_data["side"]
+
+                    if side_manual == "C":
+                        open_long(entry_price)
+                    elif side_manual == "V":
+                        open_short(entry_price)
+                    else:
+                        send_telegram("⏸️ Radar recomienda esperar")
+                        manual_order_state = None
+                        manual_order_data = {}
+                        continue
+
+                    wallet_live = load_wallet()
+
+                    if wallet_live.get("open_trade"):
+                        wallet_live["open_trade"]["stop"] = manual_order_data["stop"]
+                        wallet_live["open_trade"]["take_profit"] = manual_order_data["tp"]
+                        wallet_live["open_trade"]["amount"] = manual_order_data["amount"]
+                        wallet_live["open_trade"]["status"] = "open"
+                        wallet_live["open_trade"]["timestamp_open"] = now_str()
+                        save_wallet(wallet_live)
+
+                        send_telegram("✅ ORDEN MANUAL ABIERTA")
+                    else:
+                        send_telegram("❌ No se abrió el trade")
+
+                    manual_order_state = None
+                    manual_order_data = {}
+                    continue
+
+                elif cmd in ["2", "/cancel", "cancelar"]:
+                    send_telegram("❌ Orden manual cancelada")
+                    manual_order_state = None
+                    manual_order_data = {}
+                    continue
+
+
             # RANKING
             if cmd in ["ranking", "/ranking"]:
                 print("ENTRO EN RANKING")
