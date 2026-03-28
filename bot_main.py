@@ -827,7 +827,14 @@ while True:
         print("🎯 final_entry:", final_entry)
 
         # ============================================================
-        # 9) FIN DE CICLO
+        # 9) COMANDOS DIFERIDOS DEPENDIENTES DE MERCADO
+        #    - Aquí encajan RADAR / RIESGO / ORDEN MANUAL
+        #    - Porque aquí ya existen price, radar, strength,
+        #      structure, mtf_decision, entry_score y final_entry
+        # ============================================================
+
+        # ============================================================
+        # 10) FIN DE CICLO
         #    - Pausa mínima antes del siguiente loop
         # ============================================================
         time.sleep(1)
