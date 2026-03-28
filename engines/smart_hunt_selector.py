@@ -171,6 +171,8 @@ def get_selected_symbol(
     }
     
 def format_ranking_message(selector_info):
+    print("🔥 RANKING PRO ACTIVO")  # 👈 AQUÍ
+    
     ranking = selector_info.get("ranking", [])
     mode = selector_info.get("mode", "-")
     symbol = selector_info.get("symbol", "-")
