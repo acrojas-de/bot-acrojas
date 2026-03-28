@@ -473,6 +473,55 @@ while True:
 
                 send_telegram(wallet_msg)
                 continue
+
+            # ============================================================
+            # ORDEN MANUAL - RESPUESTA A PROPUESTA
+            #    - Ejecuta o cancela la orden manual sugerida
+            # ============================================================
+            if manual_order_state == "suggestion":
+                if cmd in ["/execute", "1", "ejecutar"]:
+                    entry_price = manual_order_data["price"]
+                    side_manual = manual_order_data["side"]
+
+                    if side_manual == "C":
+                        open_long(entry_price)
+                    elif side_manual == "V":
+                        open_short(entry_price)
+                    else:
+                        send_telegram("⏸️ Radar recomienda esperar")
+                        manual_order_state = None
+                        manual_order_data = {}
+                        continue
+
+                    wallet_live = load_wallet()
+                    if wallet_live.get("open_trade"):
+                        wallet_live["open_trade"]["stop"] = manual_order_data["stop"]
+                        wallet_live["open_trade"]["take_profit"] = manual_order_data["tp"]
+                        wallet_live["open_trade"]["amount"] = manual_order_data["amount"]
+                        wallet_live["open_trade"]["status"] = "open"
+                        wallet_live["open_trade"]["timestamp_open"] = now_str()
+                        save_wallet(wallet_live)
+
+                    send_telegram(
+                        f"✅ ORDEN MANUAL ABIERTA\n\n"
+                        f"Activo: {active_symbol}\n"
+                        f"Entrada: {entry_price:.2f}\n"
+                        f"Dirección: {side_manual}\n"
+                        f"Importe: {manual_order_data['amount']:.2f}\n"
+                        f"Stop Loss: {manual_order_data['stop']:.2f}\n"
+                        f"Take Profit: {manual_order_data['tp']:.2f}"
+                    )
+
+                    manual_order_state = None
+                    manual_order_data = {}
+                    continue
+
+                elif cmd in ["/cancel", "2", "cancelar"]:
+                    send_telegram("❌ Orden manual cancelada")
+                    manual_order_state = None
+                    manual_order_data = {}
+                    continue
+
             # CLOSE
             if cmd in ["/close", "c", "cerrar"]:
                 wallet_live = load_wallet()
@@ -883,83 +932,84 @@ while True:
 
             except Exception as e:
                 send_telegram(f"❌ Error en panel de riesgo: {e}")
-        # ============================================================
-        # 9.3) ORDEN MANUAL
-        # ============================================================
-        if any(normalize_telegram_command(c).strip().lower() in ["/manual_order", "orden manual"] for c in commands):
-            try:
-                wallet_live = load_wallet()
+            # ============================================================
+            # 9.3) ORDEN MANUAL
+            #    - Genera propuesta manual usando radar + estado actual
+            # ============================================================
+            if any(normalize_telegram_command(c).strip().lower() in ["/manual_order", "orden manual"] for c in commands):
+                try:
+                    wallet_live = load_wallet()
 
-                if wallet_live.get("open_trade"):
-                    send_telegram("ℹ️ Ya hay un trade principal abierto.")
-                else:
-                    balance = wallet_live["balance"]
-
-                    buy_count = sum(1 for tf in radar if "BUY" in radar[tf])
-                    sell_count = sum(1 for tf in radar if "SELL" in radar[tf])
-
-                    score = 50
-
-                    if "BUY" in strength:
-                        score += 10
-                    if "SELL" in strength:
-                        score -= 10
-                    if structure.startswith("📈"):
-                        score += 10
-                    if structure.startswith("📉"):
-                        score -= 10
-
-                    score += (buy_count - sell_count) * 4
-                    score = max(0, min(100, score))
-
-                    if score >= 60:
-                        recommendation = "C"
-                    elif score <= 40:
-                        recommendation = "V"
+                    if wallet_live.get("open_trade"):
+                        send_telegram("ℹ️ Ya hay un trade principal abierto.")
                     else:
-                        recommendation = "Z"
+                        balance = wallet_live["balance"]
 
-                    control_tmp = load_control()
-                    stop_pct = control_tmp.get("stop_loss_pct", 0.6)
+                        buy_count = sum(1 for tf in radar if "BUY" in radar[tf])
+                        sell_count = sum(1 for tf in radar if "SELL" in radar[tf])
 
-                    risk_pct = 1
-                    risk_amount = balance * (risk_pct / 100)
-                    position = round(risk_amount / (stop_pct / 100), 2)
+                        score = 50
 
-                    if recommendation == "C":
-                        stop = price * (1 - stop_pct / 100)
-                        tp = price * (1 + (stop_pct * 2) / 100)
-                    elif recommendation == "V":
-                        stop = price * (1 + stop_pct / 100)
-                        tp = price * (1 - (stop_pct * 2) / 100)
-                    else:
-                        stop = price * (1 - stop_pct / 100)
-                        tp = price * (1 + stop_pct / 100)
+                        if "BUY" in strength:
+                            score += 10
+                        if "SELL" in strength:
+                            score -= 10
+                        if structure.startswith("📈"):
+                            score += 10
+                        if structure.startswith("📉"):
+                            score -= 10
 
-                    manual_order_state = "suggestion"
-                    manual_order_data = {
-                        "price": price,
-                        "amount": position,
-                        "stop": stop,
-                        "tp": tp,
-                        "side": recommendation,
-                    }
+                        score += (buy_count - sell_count) * 4
+                        score = max(0, min(100, score))
 
-                    send_telegram(
-                        f"🧠 RADAR MANUAL ENTRY\n\n"
-                        f"Activo: {active_symbol}\n"
-                        f"Precio: {price:.2f}\n\n"
-                        f"Recomendación: {recommendation}\n"
-                        f"Score radar: {score}/100\n\n"
-                        f"Importe sugerido: {position:.2f} USDT\n"
-                        f"Stop sugerido: {stop:.2f}\n"
-                        f"Take Profit sugerido: {tp:.2f}\n\n"
-                        f"1 → Ejecutar\n"
-                        f"2 → Cancelar"
-                    )
+                        if score >= 60:
+                            recommendation = "C"
+                        elif score <= 40:
+                            recommendation = "V"
+                        else:
+                            recommendation = "Z"
 
-            except Exception as e:
-                send_telegram(f"❌ Error en orden manual: {e}")
+                        control_tmp = load_control()
+                        stop_pct = control_tmp.get("stop_loss_pct", 0.6)
+
+                        risk_pct = 1
+                        risk_amount = balance * (risk_pct / 100)
+                        position = round(risk_amount / (stop_pct / 100), 2)
+
+                        if recommendation == "C":
+                            stop = price * (1 - stop_pct / 100)
+                            tp = price * (1 + (stop_pct * 2) / 100)
+                        elif recommendation == "V":
+                            stop = price * (1 + stop_pct / 100)
+                            tp = price * (1 - (stop_pct * 2) / 100)
+                        else:
+                            stop = price * (1 - stop_pct / 100)
+                            tp = price * (1 + stop_pct / 100)
+
+                        manual_order_state = "suggestion"
+                        manual_order_data = {
+                            "price": price,
+                            "amount": position,
+                            "stop": stop,
+                            "tp": tp,
+                            "side": recommendation,
+                        }
+
+                        send_telegram(
+                            f"🧠 RADAR MANUAL ENTRY\n\n"
+                            f"Activo: {active_symbol}\n"
+                            f"Precio: {price:.2f}\n\n"
+                            f"Recomendación: {recommendation}\n"
+                            f"Score radar: {score}/100\n\n"
+                            f"Importe sugerido: {position:.2f} USDT\n"
+                            f"Stop sugerido: {stop:.2f}\n"
+                            f"Take Profit sugerido: {tp:.2f}\n\n"
+                            f"Escribe 1 para ejecutar\n"
+                            f"Escribe 2 para cancelar"
+                        )
+
+                except Exception as e:
+                    send_telegram(f"❌ Error en orden manual: {e}")
 
         # ============================================================
         # 10) FIN DE CICLO

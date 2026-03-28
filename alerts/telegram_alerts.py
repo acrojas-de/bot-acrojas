@@ -202,13 +202,8 @@ def normalize_telegram_command(text):
         "⚪ auto": "/auto",
         "🛠️ orden manual": "/manual_order",
         "⚙️ riesgo": "/risk",
-         # 🔥 NUEVO
         "🟡 órbita": "/orbita",
         "📡 escanear": "/scan",
-        
-        "1": "/execute",
-        "2": "/modify",
-        "3": "/cancel",
     }
 
     return mapping.get(text, text)
