@@ -835,7 +835,6 @@ while True:
 
         # ============================================================
         # 9.1) RADAR
-        #    - Envía panel gráfico + resumen del activo actual
         # ============================================================
         if any(normalize_telegram_command(c).strip().lower() in ["/radar", "radar"] for c in commands):
             try:
@@ -867,7 +866,6 @@ while True:
 
         # ============================================================
         # 9.2) RIESGO
-        #    - Abre panel simple de gestión de riesgo
         # ============================================================
         if any(normalize_telegram_command(c).strip().lower() in ["/risk", "riesgo"] for c in commands):
             try:
@@ -885,10 +883,8 @@ while True:
 
             except Exception as e:
                 send_telegram(f"❌ Error en panel de riesgo: {e}")
-
         # ============================================================
         # 9.3) ORDEN MANUAL
-        #    - Genera propuesta manual usando radar + estado actual
         # ============================================================
         if any(normalize_telegram_command(c).strip().lower() in ["/manual_order", "orden manual"] for c in commands):
             try:
