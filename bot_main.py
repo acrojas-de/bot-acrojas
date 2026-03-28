@@ -303,6 +303,7 @@ while True:
                 "watchlist": WATCHLIST,
                 "default_symbol": DEFAULT_SYMBOL,
                 "manual_symbol": manual_symbol,
+                "raw_cmd": raw_cmd,
             }
 
             handled = dispatch_command(cmd, context)
@@ -637,6 +638,7 @@ while True:
                         "entry": entry,
                         "exit": cached_price,
                         "pnl": pnl,
+                        "timestamp": now_str(),
                     })
 
                     wallet_live["balance"] += pnl
