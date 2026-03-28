@@ -834,6 +834,138 @@ while True:
         # ============================================================
 
         # ============================================================
+        # 9.1) RADAR
+        #    - Envía panel gráfico + resumen del activo actual
+        # ============================================================
+        if any(normalize_telegram_command(c).strip().lower() in ["/radar", "radar"] for c in commands):
+            try:
+                panel_path = generate_mtf_dashboard(
+                    price,
+                    entry_score,
+                    mtf_decision,
+                    monthly_bias,
+                    weekly_bias,
+                    intraday_trigger,
+                )
+
+                radar_caption = (
+                    f"🎯 {active_symbol}\n"
+                    f"Precio: {price:.2f}\n"
+                    f"Score: {entry_score}/8\n"
+                    f"Compresión: {compression}\n"
+                    f"Fuerza: {strength}\n"
+                    f"Estructura: {structure}\n"
+                    f"Trigger: {intraday_trigger}\n"
+                    f"Decisión: {mtf_decision}\n"
+                    f"Entrada final: {final_entry if final_entry else 'esperando'}"
+                )
+
+                send_telegram_image(panel_path, caption=radar_caption)
+
+            except Exception as e:
+                send_telegram(f"❌ Error en RADAR: {e}")
+
+        # ============================================================
+        # 9.2) RIESGO
+        #    - Abre panel simple de gestión de riesgo
+        # ============================================================
+        if any(normalize_telegram_command(c).strip().lower() in ["/risk", "riesgo"] for c in commands):
+            try:
+                risk_state = "menu"
+                risk_data = {}
+
+                send_telegram(
+                    "⚙️ GESTIÓN DE RIESGO\n\n"
+                    "1 → Cambiar Stop Loss %\n"
+                    "2 → Cambiar Trailing Stop %\n"
+                    "3 → Cambiar Break Even %\n"
+                    "4 → Activar / Desactivar Trailing\n"
+                    "5 → Cancelar"
+                )
+
+            except Exception as e:
+                send_telegram(f"❌ Error en panel de riesgo: {e}")
+
+        # ============================================================
+        # 9.3) ORDEN MANUAL
+        #    - Genera propuesta manual usando radar + estado actual
+        # ============================================================
+        if any(normalize_telegram_command(c).strip().lower() in ["/manual_order", "orden manual"] for c in commands):
+            try:
+                wallet_live = load_wallet()
+
+                if wallet_live.get("open_trade"):
+                    send_telegram("ℹ️ Ya hay un trade principal abierto.")
+                else:
+                    balance = wallet_live["balance"]
+
+                    buy_count = sum(1 for tf in radar if "BUY" in radar[tf])
+                    sell_count = sum(1 for tf in radar if "SELL" in radar[tf])
+
+                    score = 50
+
+                    if "BUY" in strength:
+                        score += 10
+                    if "SELL" in strength:
+                        score -= 10
+                    if structure.startswith("📈"):
+                        score += 10
+                    if structure.startswith("📉"):
+                        score -= 10
+
+                    score += (buy_count - sell_count) * 4
+                    score = max(0, min(100, score))
+
+                    if score >= 60:
+                        recommendation = "C"
+                    elif score <= 40:
+                        recommendation = "V"
+                    else:
+                        recommendation = "Z"
+
+                    control_tmp = load_control()
+                    stop_pct = control_tmp.get("stop_loss_pct", 0.6)
+
+                    risk_pct = 1
+                    risk_amount = balance * (risk_pct / 100)
+                    position = round(risk_amount / (stop_pct / 100), 2)
+
+                    if recommendation == "C":
+                        stop = price * (1 - stop_pct / 100)
+                        tp = price * (1 + (stop_pct * 2) / 100)
+                    elif recommendation == "V":
+                        stop = price * (1 + stop_pct / 100)
+                        tp = price * (1 - (stop_pct * 2) / 100)
+                    else:
+                        stop = price * (1 - stop_pct / 100)
+                        tp = price * (1 + stop_pct / 100)
+
+                    manual_order_state = "suggestion"
+                    manual_order_data = {
+                        "price": price,
+                        "amount": position,
+                        "stop": stop,
+                        "tp": tp,
+                        "side": recommendation,
+                    }
+
+                    send_telegram(
+                        f"🧠 RADAR MANUAL ENTRY\n\n"
+                        f"Activo: {active_symbol}\n"
+                        f"Precio: {price:.2f}\n\n"
+                        f"Recomendación: {recommendation}\n"
+                        f"Score radar: {score}/100\n\n"
+                        f"Importe sugerido: {position:.2f} USDT\n"
+                        f"Stop sugerido: {stop:.2f}\n"
+                        f"Take Profit sugerido: {tp:.2f}\n\n"
+                        f"1 → Ejecutar\n"
+                        f"2 → Cancelar"
+                    )
+
+            except Exception as e:
+                send_telegram(f"❌ Error en orden manual: {e}")
+
+        # ============================================================
         # 10) FIN DE CICLO
         #    - Pausa mínima antes del siguiente loop
         # ============================================================
