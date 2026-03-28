@@ -275,7 +275,6 @@ while True:
                 cached_signal = None
                 cached_risk_mode = None
                 cached_capital_diff = None
-                cached_klines_map = {}
                 last_market_run = 0
                 last_active_symbol = active_symbol
                 print("🔄 Cambio de símbolo:", active_symbol)
@@ -306,8 +305,16 @@ while True:
                 "raw_cmd": raw_cmd,
             }
 
-            handled = dispatch_command(cmd, context)
-            if handled:
+            result = dispatch_command(cmd, context)
+
+            if isinstance(result, tuple):
+                action, value = result
+
+                if action == "select":
+                    manual_symbol = value
+                    continue
+
+            elif result:
                 continue
 
             # ============================================================
