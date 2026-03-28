@@ -1,7 +1,20 @@
+# ============================================================
+# IMPORTS BASE
+# - Cliente Binance
+# - utilidades de tiempo / errores
+# ============================================================
 from binance.client import Client
 import time
 import traceback
 
+
+# ============================================================
+# TELEGRAM
+# - envío de mensajes
+# - lectura de comandos
+# - imágenes
+# - normalización de botones/comandos
+# ============================================================
 from alerts.telegram_alerts import (
     send_telegram,
     read_telegram_commands,
@@ -9,6 +22,14 @@ from alerts.telegram_alerts import (
     normalize_telegram_command,
 )
 
+
+# ============================================================
+# CONFIG GLOBAL
+# - claves
+# - símbolo por defecto
+# - timeframes
+# - parámetros generales del bot
+# ============================================================
 from config import (
     API_KEY,
     API_SECRET,
@@ -24,6 +45,19 @@ from config import (
     MIN_PROFIT_ALERT,
 )
 
+
+# ============================================================
+# ENGINES DE ANÁLISIS
+# - bias
+# - compresión
+# - rebote
+# - riesgo
+# - señal
+# - contexto
+# - pullback
+# - sniper
+# - selector smart hunt
+# ============================================================
 from engines.htf_bias_engine import get_htf_bias
 from engines.compression_engine import compression_signal
 from engines.rebound_engine import rebound_entry
@@ -34,14 +68,31 @@ from engines.pullback_engine import pullback_zone
 from engines.sniper_entry import get_last_candle, sniper_entry
 from engines.vibora_engine import ViboraEngine
 from engines.smart_hunt_selector import get_selected_symbol, format_ranking_message
+
+
+# ============================================================
+# ÓRBITA / MERCADOS
+# - lista de activos
+# - menús de navegación
+# ============================================================
 from orbita.config_market import MARKET_ASSETS
 from orbita.router import show_orbita_menu, show_asset_menu
 
 
-
+# ============================================================
+# ESTADO MANUAL / TEST
+# - selección manual de símbolo
+# - control candle test 5m
+# ============================================================
 manual_symbol = None
 last_test_5m_candle_time = None
 
+
+# ============================================================
+# PAPER ENGINE / CONTROL OPERATIVO
+# - abrir/cerrar trades
+# - leer y guardar wallet/control
+# ============================================================
 from engines.paper_engine import (
     open_long,
     open_short,
@@ -52,12 +103,28 @@ from engines.paper_engine import (
     save_control,
 )
 
+
+# ============================================================
+# MTF / LOGS / DASHBOARD
+# - motor multi-timeframe
+# - logs de trades/equity
+# - panel gráfico
+# ============================================================
 from mtf_engine import MTFEngine
 from utils.history_logger import log_trade, log_equity, now_str
 from utils.mtf_dashboard import generate_mtf_dashboard
 
+
+# ============================================================
+# BUILD / IDENTIFICACIÓN DE VERSIÓN
+# ============================================================
 print("🔥 BOT_ACROJAS BUILD NUEVA - TELEGRAM CLEAN MODE 🔥")
 
+
+# ============================================================
+# WATCHLIST BASE
+# - activos candidatos para el selector
+# ============================================================
 WATCHLIST = [
     "BTCUSDT",
     "ETHUSDT",
@@ -66,9 +133,18 @@ WATCHLIST = [
     "BNBUSDT",
 ]
 
+
+# ============================================================
+# INICIALIZACIÓN DE CLIENTES / ENGINES
+# ============================================================
 client = Client(API_KEY, API_SECRET)
 vibora = ViboraEngine(config=None)
 
+
+# ============================================================
+# FUNCIÓN AUXILIAR
+# - obtiene símbolo activo desde selector inteligente
+# ============================================================
 def get_active_symbol(current_symbol, manual_symbol):
     selected_symbol, selector_info = get_selected_symbol(
         client=client,
@@ -92,6 +168,10 @@ def get_active_symbol(current_symbol, manual_symbol):
     return selected_symbol
 
 
+# ============================================================
+# FUNCIÓN AUXILIAR
+# - descarga klines de Binance
+# ============================================================
 def get_klines(symbol, interval, limit=120):
     return client.get_klines(
         symbol=symbol,
@@ -100,6 +180,10 @@ def get_klines(symbol, interval, limit=120):
     )
 
 
+# ============================================================
+# FUNCIÓN AUXILIAR
+# - normaliza klines a diccionario OHLC
+# ============================================================
 def normalize_klines(raw_klines):
     candles = []
     for k in raw_klines:
@@ -114,15 +198,29 @@ def normalize_klines(raw_klines):
     return candles
 
 
+# ============================================================
+# LOG DE ARRANQUE
+# - información visible al iniciar bot
+# ============================================================
 print("🛰️ ACROJAS BOT iniciado")
 print("ℹ️ Welcome panel omitido al arranque")
 print("⏱️ Timeframes activos:", ", ".join(ACTIVE_TIMEFRAMES))
 print("🧠 Modo bot:", BOT_MODE)
 print("🛠️ Modo gestión:", TRADE_MODE)
 
+
+# ============================================================
+# CONFIG INICIAL DE CONTROL
+# - lee modo de gestión persistido
+# ============================================================
 control_boot = load_control()
 current_trade_mode = control_boot.get("trade_mode", TRADE_MODE)
 
+
+# ============================================================
+# ESTADO GLOBAL DEL LOOP
+# - variables persistentes entre iteraciones
+# ============================================================
 last_state = None
 last_update_id = None
 last_active_symbol = None
@@ -131,6 +229,11 @@ manual_order_data = {}
 risk_state = None
 risk_data = {}
 
+
+# ============================================================
+# CACHÉ DE MERCADO
+# - evita recalcular todo en cada vuelta del loop
+# ============================================================
 last_market_run = 0
 cached_price = None
 cached_signal = None
@@ -344,7 +447,7 @@ while True:
 
                 floating_pnl_amount = 0.0
 
-                if trade_live:
+                if trade_live and price is not None:
                     live_entry = trade_live["entry"]
                     live_side = trade_live["side"]
 
@@ -370,7 +473,6 @@ while True:
 
                 send_telegram(wallet_msg)
                 continue
-
             # CLOSE
             if cmd in ["/close", "c", "cerrar"]:
                 wallet_live = load_wallet()
@@ -381,6 +483,10 @@ while True:
                     side_close = trade_live["side"]
                     balance = wallet_live["balance"]
                     amount = trade_live.get("amount", balance)
+
+                    if price is None:
+                        send_telegram("⏳ Espera un segundo y vuelve a pulsar Cerrar")
+                        continue
 
                     if side_close == "LONG":
                         pnl = (price - entry) / entry * amount
@@ -406,6 +512,7 @@ while True:
                     )
                 else:
                     send_telegram("ℹ️ No hay trade abierto")
+
                 continue
 
             # PAUSE / RESUME / MODOS
@@ -413,6 +520,7 @@ while True:
                 control_tmp = load_control()
                 control_tmp["allow_new_entries"] = False
                 save_control(control_tmp)
+
                 send_telegram("⏸️ Bot en modo observación (no abrirá nuevos trades)")
                 continue
 
@@ -420,28 +528,35 @@ while True:
                 control_tmp = load_control()
                 control_tmp["allow_new_entries"] = True
                 save_control(control_tmp)
+
                 send_telegram("▶️ Bot reactivado (puede abrir trades)")
                 continue
 
             if cmd in ["/manual", "m", "manual", "manual_spot"]:
                 current_trade_mode = "MANUAL_SPOT"
+
                 control_tmp = load_control()
                 control_tmp["trade_mode"] = current_trade_mode
                 save_control(control_tmp)
+
                 send_telegram(f"🛠️ Modo cambiado a {current_trade_mode}")
                 continue
 
             if cmd in ["/auto", "a", "auto", "auto_leverage"]:
                 current_trade_mode = "AUTO_LEVERAGE"
+
                 control_tmp = load_control()
                 control_tmp["trade_mode"] = current_trade_mode
                 save_control(control_tmp)
+
                 send_telegram(f"🤖 Modo cambiado a {current_trade_mode}")
                 continue
 
-        # =========================
-        # MERCADO / CACHÉ
-        # =========================
+        # ============================================================
+        # 1) MERCADO / CACHÉ BASE
+        #    - Reusa datos cacheados si siguen frescos
+        #    - Si toca actualización, recalcula precio, klines y señal
+        # ============================================================
         price = cached_price
         signal = cached_signal
         risk_mode = cached_risk_mode
@@ -450,6 +565,11 @@ while True:
 
         now = time.time()
 
+        # ============================================================
+        # 2) REFRESCO DE MERCADO
+        #    - Solo entra si pasó UPDATE_INTERVAL
+        #    - O si todavía no hay señal cacheada
+        # ============================================================
         if now - last_market_run >= UPDATE_INTERVAL or cached_signal is None:
             ticker = client.get_symbol_ticker(symbol=active_symbol)
             price = float(ticker["price"])
@@ -460,6 +580,9 @@ while True:
 
             floating_pnl_amount = 0.0
 
+            # ========================================================
+            # 2.1) PnL flotante del trade abierto
+            # ========================================================
             if trade_live:
                 live_entry = trade_live["entry"]
                 live_side = trade_live["side"]
@@ -474,6 +597,9 @@ while True:
 
             equity_estimate = current_balance + floating_pnl_amount
 
+            # ========================================================
+            # 2.2) Log de equity
+            # ========================================================
             log_equity(
                 {
                     "timestamp": now_str(),
@@ -486,6 +612,9 @@ while True:
                 }
             )
 
+            # ========================================================
+            # 2.3) Descarga de klines por timeframe
+            # ========================================================
             klines_map = {}
             for tf in ACTIVE_TIMEFRAMES:
                 interval = ALL_TIMEFRAMES[tf]
@@ -493,10 +622,16 @@ while True:
 
             print("🎯 Active symbol:", active_symbol)
 
+            # ========================================================
+            # 2.4) Construcción de señal principal
+            # ========================================================
             bias_4h = get_htf_bias(klines_map["4h"])
             compression = compression_signal(klines_map["1h"])
             signal = build_signal(price, klines_map)
 
+            # ========================================================
+            # 2.5) Estado de riesgo del bot
+            # ========================================================
             risk_mode, capital_diff = risk_status(
                 CAPITAL_BASE,
                 equity_estimate,
@@ -504,6 +639,9 @@ while True:
                 MIN_PROFIT_ALERT,
             )
 
+            # ========================================================
+            # 2.6) Guardado en caché
+            # ========================================================
             cached_price = price
             cached_signal = signal
             cached_risk_mode = risk_mode
@@ -512,9 +650,17 @@ while True:
             last_market_run = now
 
         else:
+            # ========================================================
+            # 2.7) Reuso de caché
+            #    - No recalcula toda la señal, pero refresca lecturas base
+            # ========================================================
             bias_4h = get_htf_bias(klines_map["4h"])
             compression = compression_signal(klines_map["1h"])
 
+        # ============================================================
+        # 3) DESGLOSE DE LA SEÑAL
+        #    - Extrae del dict "signal" las piezas que usa el bot
+        # ============================================================
         radar = signal["radar"]
         rsi_map = signal["rsi"]
         interpretation = signal["interpretation"]
@@ -528,10 +674,20 @@ while True:
         target = signal["target"]
         liq_target = signal["liq_target"]
 
+        # ============================================================
+        # 4) CONTEXTO OPERATIVO
+        #    - Contexto general, zona de pullback y última vela 5m
+        # ============================================================
         context = get_market_context(radar)
         setup_5m = pullback_zone(klines_map["5m"])
         last_candle_5m = get_last_candle(klines_map["5m"])
 
+        # ============================================================
+        # 5) SEÑALES DE ENTRADA TÁCTICAS
+        #    - Sniper entry
+        #    - Rebound entry
+        #    - Fusión en una entry_signal única
+        # ============================================================
         sniper = sniper_entry(
             context=context,
             setup_5m=setup_5m,
@@ -567,6 +723,13 @@ while True:
 
         print("sniper:", sniper, "rebound_signal:", rebound_signal, "entry_signal:", entry_signal)
 
+        # ============================================================
+        # 6) MTF ENGINE
+        #    - Bias mensual
+        #    - Bias semanal
+        #    - Trigger intradía
+        #    - Decisión MTF final
+        # ============================================================
         mtf_engine = MTFEngine()
 
         monthly_bias = mtf_engine.get_monthly_bias(klines_map["1D"])
@@ -590,6 +753,11 @@ while True:
         print("rebound_signal:", rebound_signal)
         print("entry_signal:", entry_signal)
 
+        # ============================================================
+        # 7) SCORING DE ENTRADA
+        #    - Puntuación por MTF, estructura, compresión, sniper,
+        #      rebound y entry_signal
+        # ============================================================
         score_mtf = 0
         score_structure = 0
         score_compression = 0
@@ -638,6 +806,10 @@ while True:
 
         print("👉 entry_score:", entry_score)
 
+        # ============================================================
+        # 8) DECISIÓN FINAL DE ENTRADA
+        #    - Convierte el score + decisión MTF en final_entry
+        # ============================================================
         if mtf_decision == "ENTER_LONG" and entry_score >= 4:
             final_entry = "long"
         elif mtf_decision == "ENTER_SHORT" and entry_score >= 6:
@@ -654,6 +826,10 @@ while True:
 
         print("🎯 final_entry:", final_entry)
 
+        # ============================================================
+        # 9) FIN DE CICLO
+        #    - Pausa mínima antes del siguiente loop
+        # ============================================================
         time.sleep(1)
 
     except Exception as e:
