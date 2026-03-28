@@ -265,8 +265,8 @@ while True:
 
             print(f"\n🧠 SELECTOR MODE: {selector_info['mode']}")
             print(f"🎯 SYMBOL: {symbol}")
-
             print("📝 manual_symbol actual:", manual_symbol)
+
             active_symbol = symbol
 
             if active_symbol != last_active_symbol:
@@ -349,7 +349,6 @@ while True:
                     manual_order_data = {}
                     continue
 
-
             # RANKING
             if cmd in ["ranking", "/ranking"]:
                 print("ENTRO EN RANKING")
@@ -360,18 +359,35 @@ while True:
                         default_symbol=DEFAULT_SYMBOL,
                         manual_symbol=manual_symbol,
                     )
-
                     msg = format_ranking_message(selector_info)
                     send_telegram(msg)
-
                 except Exception as e:
                     print("ERROR EN RANKING:", e)
+                continue
 
-                continue            
+            # HISTORY
+            if cmd in ["/history", "history"]:
+                wallet_live = load_wallet()
+                history = wallet_live.get("history", [])
+
+                if not history:
+                    send_telegram("📭 No hay historial de operaciones")
+                    continue
+
+                msg = "📜 HISTORIAL\n\n"
+                for i, trade_item in enumerate(history[-5:], 1):
+                    msg += (
+                        f"{i}. {trade_item.get('side', '-')}"
+                        f" | Entrada: {trade_item.get('entry', 0):.2f}"
+                        f" | Salida: {trade_item.get('exit', 0):.2f}"
+                        f" | PnL: {trade_item.get('pnl', 0):.2f}\n"
+                    )
+
+                send_telegram(msg)
+                continue
 
             # ÓRBITA MENU
             if cmd in ["/orbita", "orbita"]:
-                from orbita.router import show_orbita_menu
                 send_telegram(show_orbita_menu())
                 continue
 
@@ -380,8 +396,6 @@ while True:
                 manual_symbol = cmd.upper()
                 last_active_symbol = manual_symbol
                 print("🎯 MANUAL SYMBOL SET:", manual_symbol)
-
-                from orbita.router import show_asset_menu
                 send_telegram(show_asset_menu(manual_symbol))
                 continue
 
@@ -458,6 +472,10 @@ while True:
                 trade_live = wallet_live["open_trade"]
 
                 if trade_live:
+                    if cached_price is None:
+                        send_telegram("⏳ Espera un segundo y vuelve a pulsar Trade")
+                        continue
+
                     live_entry = trade_live["entry"]
                     live_side = trade_live["side"]
                     live_stop = trade_live["stop"]
@@ -465,9 +483,9 @@ while True:
                     live_amount = trade_live.get("amount")
 
                     if live_side == "LONG":
-                        live_pnl_pct = (price - live_entry) / live_entry * 100
+                        live_pnl_pct = (cached_price - live_entry) / live_entry * 100
                     else:
-                        live_pnl_pct = (live_entry - price) / live_entry * 100
+                        live_pnl_pct = (live_entry - cached_price) / live_entry * 100
 
                     trade_msg = (
                         f"📈 ESTADO TRADE\n"
@@ -475,7 +493,7 @@ while True:
                         f"Trade: ABIERTO\n"
                         f"Side: {live_side}\n"
                         f"Entrada: {live_entry:.2f}\n"
-                        f"Precio actual: {price:.2f}\n"
+                        f"Precio actual: {cached_price:.2f}\n"
                         f"PnL %: {live_pnl_pct:.3f}\n"
                         + (f"Importe: {live_amount:.2f}\n" if live_amount is not None else "")
                         + f"Stop: {live_stop:.2f}\n"
@@ -503,14 +521,14 @@ while True:
 
                 floating_pnl_amount = 0.0
 
-                if trade_live and price is not None:
+                if trade_live and cached_price is not None:
                     live_entry = trade_live["entry"]
                     live_side = trade_live["side"]
 
                     if live_side == "LONG":
-                        live_pnl_pct = (price - live_entry) / live_entry * 100
+                        live_pnl_pct = (cached_price - live_entry) / live_entry * 100
                     else:
-                        live_pnl_pct = (live_entry - price) / live_entry * 100
+                        live_pnl_pct = (live_entry - cached_price) / live_entry * 100
 
                     live_amount = trade_live.get("amount", balance_now)
                     floating_pnl_amount = live_amount * (live_pnl_pct / 100)
@@ -530,38 +548,87 @@ while True:
                 send_telegram(wallet_msg)
                 continue
 
-            # ============================================================
-            # ORDEN MANUAL - RESPUESTA A PROPUESTA
-            #    - Ejecuta o cancela la orden manual sugerida
-            # ============================================================
+            # ORDEN MANUAL
+            if cmd in ["/manual_order", "orden manual"]:
+                try:
+                    print("🔥 ENTRÓ EN ORDEN MANUAL")
+
                     wallet_live = load_wallet()
+
                     if wallet_live.get("open_trade"):
-                        wallet_live["open_trade"]["stop"] = manual_order_data["stop"]
-                        wallet_live["open_trade"]["take_profit"] = manual_order_data["tp"]
-                        wallet_live["open_trade"]["amount"] = manual_order_data["amount"]
-                        wallet_live["open_trade"]["status"] = "open"
-                        wallet_live["open_trade"]["timestamp_open"] = now_str()
-                        save_wallet(wallet_live)
+                        send_telegram("ℹ️ Ya hay un trade principal abierto.")
+                    else:
+                        if cached_price is None or cached_signal is None:
+                            send_telegram("⏳ Espera un segundo y vuelve a pulsar Orden manual")
+                            continue
 
-                    send_telegram(
-                        f"✅ ORDEN MANUAL ABIERTA\n\n"
-                        f"Activo: {active_symbol}\n"
-                        f"Entrada: {entry_price:.2f}\n"
-                        f"Dirección: {side_manual}\n"
-                        f"Importe: {manual_order_data['amount']:.2f}\n"
-                        f"Stop Loss: {manual_order_data['stop']:.2f}\n"
-                        f"Take Profit: {manual_order_data['tp']:.2f}"
-                    )
+                        buy_count = sum(1 for tf in radar if "BUY" in radar[tf])
+                        sell_count = sum(1 for tf in radar if "SELL" in radar[tf])
 
-                    manual_order_state = None
-                    manual_order_data = {}
-                    continue
+                        score = 50
 
-                elif cmd in ["/cancel", "2", "cancelar"]:
-                    send_telegram("❌ Orden manual cancelada")
-                    manual_order_state = None
-                    manual_order_data = {}
-                    continue
+                        if "BUY" in strength:
+                            score += 10
+                        if "SELL" in strength:
+                            score -= 10
+                        if structure.startswith("📈"):
+                            score += 10
+                        if structure.startswith("📉"):
+                            score -= 10
+
+                        score += (buy_count - sell_count) * 4
+                        score = max(0, min(100, score))
+
+                        if score >= 60:
+                            recommendation = "C"
+                        elif score <= 40:
+                            recommendation = "V"
+                        else:
+                            recommendation = "Z"
+
+                        control_tmp = load_control()
+                        stop_pct = control_tmp.get("stop_loss_pct", 0.6)
+
+                        risk_pct = 1
+                        risk_amount = wallet_live["balance"] * (risk_pct / 100)
+                        position = round(risk_amount / (stop_pct / 100), 2)
+
+                        if recommendation == "C":
+                            stop = cached_price * (1 - stop_pct / 100)
+                            tp = cached_price * (1 + (stop_pct * 2) / 100)
+                        elif recommendation == "V":
+                            stop = cached_price * (1 + stop_pct / 100)
+                            tp = cached_price * (1 - (stop_pct * 2) / 100)
+                        else:
+                            stop = cached_price * (1 - stop_pct / 100)
+                            tp = cached_price * (1 + stop_pct / 100)
+
+                        manual_order_state = "suggestion"
+                        manual_order_data = {
+                            "price": cached_price,
+                            "amount": position,
+                            "stop": stop,
+                            "tp": tp,
+                            "side": recommendation,
+                        }
+
+                        send_telegram(
+                            f"🧠 RADAR MANUAL ENTRY\n\n"
+                            f"Activo: {active_symbol}\n"
+                            f"Precio: {cached_price:.2f}\n\n"
+                            f"Recomendación: {recommendation}\n"
+                            f"Score radar: {score}/100\n\n"
+                            f"Importe sugerido: {position:.2f} USDT\n"
+                            f"Stop sugerido: {stop:.2f}\n"
+                            f"Take Profit sugerido: {tp:.2f}\n\n"
+                            f"Escribe 1 para ejecutar\n"
+                            f"Escribe 2 para cancelar"
+                        )
+
+                except Exception as e:
+                    send_telegram(f"❌ Error en orden manual: {e}")
+
+                continue
 
             # CLOSE
             if cmd in ["/close", "c", "cerrar"]:
@@ -569,19 +636,29 @@ while True:
                 trade_live = wallet_live.get("open_trade")
 
                 if trade_live:
+                    if cached_price is None:
+                        send_telegram("⏳ Espera un segundo y vuelve a pulsar Cerrar")
+                        continue
+
                     entry = trade_live["entry"]
                     side_close = trade_live["side"]
                     balance = wallet_live["balance"]
                     amount = trade_live.get("amount", balance)
 
-                    if price is None:
-                        send_telegram("⏳ Espera un segundo y vuelve a pulsar Cerrar")
-                        continue
-
                     if side_close == "LONG":
-                        pnl = (price - entry) / entry * amount
+                        pnl = (cached_price - entry) / entry * amount
                     else:
-                        pnl = (entry - price) / entry * amount
+                        pnl = (entry - cached_price) / entry * amount
+
+                    if "history" not in wallet_live:
+                        wallet_live["history"] = []
+
+                    wallet_live["history"].append({
+                        "side": side_close,
+                        "entry": entry,
+                        "exit": cached_price,
+                        "pnl": pnl,
+                    })
 
                     wallet_live["balance"] += pnl
                     wallet_live["open_trade"] = None
@@ -595,7 +672,7 @@ while True:
                         f"✅ Trade cerrado manualmente desde Telegram\n"
                         f"Activo: {active_symbol}\n"
                         f"Side: {side_close}\n"
-                        f"Salida: {price:.2f}\n"
+                        f"Salida: {cached_price:.2f}\n"
                         f"PnL realizado: {pnl:.2f}\n"
                         f"Nuevo balance: {wallet_live['balance']:.2f}\n"
                         f"⏸️ Nuevas entradas pausadas"
@@ -610,7 +687,6 @@ while True:
                 control_tmp = load_control()
                 control_tmp["allow_new_entries"] = False
                 save_control(control_tmp)
-
                 send_telegram("⏸️ Bot en modo observación (no abrirá nuevos trades)")
                 continue
 
@@ -618,34 +694,27 @@ while True:
                 control_tmp = load_control()
                 control_tmp["allow_new_entries"] = True
                 save_control(control_tmp)
-
                 send_telegram("▶️ Bot reactivado (puede abrir trades)")
                 continue
 
             if cmd in ["/manual", "m", "manual", "manual_spot"]:
                 current_trade_mode = "MANUAL_SPOT"
-
                 control_tmp = load_control()
                 control_tmp["trade_mode"] = current_trade_mode
                 save_control(control_tmp)
-
                 send_telegram(f"🛠️ Modo cambiado a {current_trade_mode}")
                 continue
 
             if cmd in ["/auto", "a", "auto", "auto_leverage"]:
                 current_trade_mode = "AUTO_LEVERAGE"
-
                 control_tmp = load_control()
                 control_tmp["trade_mode"] = current_trade_mode
                 save_control(control_tmp)
-
                 send_telegram(f"🤖 Modo cambiado a {current_trade_mode}")
                 continue
 
         # ============================================================
         # 1) MERCADO / CACHÉ BASE
-        #    - Reusa datos cacheados si siguen frescos
-        #    - Si toca actualización, recalcula precio, klines y señal
         # ============================================================
         price = cached_price
         signal = cached_signal
@@ -657,8 +726,6 @@ while True:
 
         # ============================================================
         # 2) REFRESCO DE MERCADO
-        #    - Solo entra si pasó UPDATE_INTERVAL
-        #    - O si todavía no hay señal cacheada
         # ============================================================
         if now - last_market_run >= UPDATE_INTERVAL or cached_signal is None:
             ticker = client.get_symbol_ticker(symbol=active_symbol)
@@ -670,9 +737,6 @@ while True:
 
             floating_pnl_amount = 0.0
 
-            # ========================================================
-            # 2.1) PnL flotante del trade abierto
-            # ========================================================
             if trade_live:
                 live_entry = trade_live["entry"]
                 live_side = trade_live["side"]
@@ -687,9 +751,6 @@ while True:
 
             equity_estimate = current_balance + floating_pnl_amount
 
-            # ========================================================
-            # 2.2) Log de equity
-            # ========================================================
             log_equity(
                 {
                     "timestamp": now_str(),
@@ -702,9 +763,6 @@ while True:
                 }
             )
 
-            # ========================================================
-            # 2.3) Descarga de klines por timeframe
-            # ========================================================
             klines_map = {}
             for tf in ACTIVE_TIMEFRAMES:
                 interval = ALL_TIMEFRAMES[tf]
@@ -712,16 +770,10 @@ while True:
 
             print("🎯 Active symbol:", active_symbol)
 
-            # ========================================================
-            # 2.4) Construcción de señal principal
-            # ========================================================
             bias_4h = get_htf_bias(klines_map["4h"])
             compression = compression_signal(klines_map["1h"])
             signal = build_signal(price, klines_map)
 
-            # ========================================================
-            # 2.5) Estado de riesgo del bot
-            # ========================================================
             risk_mode, capital_diff = risk_status(
                 CAPITAL_BASE,
                 equity_estimate,
@@ -729,9 +781,6 @@ while True:
                 MIN_PROFIT_ALERT,
             )
 
-            # ========================================================
-            # 2.6) Guardado en caché
-            # ========================================================
             cached_price = price
             cached_signal = signal
             cached_risk_mode = risk_mode
@@ -740,16 +789,11 @@ while True:
             last_market_run = now
 
         else:
-            # ========================================================
-            # 2.7) Reuso de caché
-            #    - No recalcula toda la señal, pero refresca lecturas base
-            # ========================================================
             bias_4h = get_htf_bias(klines_map["4h"])
             compression = compression_signal(klines_map["1h"])
 
         # ============================================================
         # 3) DESGLOSE DE LA SEÑAL
-        #    - Extrae del dict "signal" las piezas que usa el bot
         # ============================================================
         radar = signal["radar"]
         rsi_map = signal["rsi"]
@@ -766,7 +810,6 @@ while True:
 
         # ============================================================
         # 4) CONTEXTO OPERATIVO
-        #    - Contexto general, zona de pullback y última vela 5m
         # ============================================================
         context = get_market_context(radar)
         setup_5m = pullback_zone(klines_map["5m"])
@@ -774,9 +817,6 @@ while True:
 
         # ============================================================
         # 5) SEÑALES DE ENTRADA TÁCTICAS
-        #    - Sniper entry
-        #    - Rebound entry
-        #    - Fusión en una entry_signal única
         # ============================================================
         sniper = sniper_entry(
             context=context,
@@ -815,10 +855,6 @@ while True:
 
         # ============================================================
         # 6) MTF ENGINE
-        #    - Bias mensual
-        #    - Bias semanal
-        #    - Trigger intradía
-        #    - Decisión MTF final
         # ============================================================
         mtf_engine = MTFEngine()
 
@@ -845,8 +881,6 @@ while True:
 
         # ============================================================
         # 7) SCORING DE ENTRADA
-        #    - Puntuación por MTF, estructura, compresión, sniper,
-        #      rebound y entry_signal
         # ============================================================
         score_mtf = 0
         score_structure = 0
@@ -898,7 +932,6 @@ while True:
 
         # ============================================================
         # 8) DECISIÓN FINAL DE ENTRADA
-        #    - Convierte el score + decisión MTF en final_entry
         # ============================================================
         if mtf_decision == "ENTER_LONG" and entry_score >= 4:
             final_entry = "long"
@@ -918,15 +951,9 @@ while True:
 
         # ============================================================
         # 9) COMANDOS DIFERIDOS DEPENDIENTES DE MERCADO
-        #    - Aquí encajan RADAR / RIESGO
-        #    - Porque aquí ya existen price, radar, strength,
-        #      structure, mtf_decision, entry_score y final_entry
         # ============================================================
 
-        # ============================================================
-        # 9.1) RADAR
-        #    - Envía panel gráfico + resumen del activo actual
-        # ============================================================
+        # RADAR
         if any(normalize_telegram_command(c).strip().lower() in ["/radar", "radar"] for c in commands):
             try:
                 panel_path = generate_mtf_dashboard(
@@ -955,15 +982,11 @@ while True:
             except Exception as e:
                 send_telegram(f"❌ Error en RADAR: {e}")
 
-        # ============================================================
-        # 9.2) RIESGO
-        #    - Abre panel simple de gestión de riesgo
-        # ============================================================
+        # RIESGO
         if any(normalize_telegram_command(c).strip().lower() in ["/risk", "riesgo"] for c in commands):
             try:
                 risk_state = "menu"
                 risk_data = {}
-
                 send_telegram(
                     "⚙️ GESTIÓN DE RIESGO\n\n"
                     "1 → Cambiar Stop Loss %\n"
@@ -972,115 +995,10 @@ while True:
                     "4 → Activar / Desactivar Trailing\n"
                     "5 → Cancelar"
                 )
-
             except Exception as e:
                 send_telegram(f"❌ Error en panel de riesgo: {e}")
-        # ============================================================
-        # 9.3) ORDEN MANUAL
-        #    - Genera propuesta manual usando radar + estado actual
-        #    - Se ejecuta desde botón "🛠️ Orden manual"
-        # ============================================================
-        if cmd in ["/manual_order", "orden manual"]:
-            try:
-                print("🔥 ENTRÓ EN ORDEN MANUAL")
 
-                wallet_live = load_wallet()
-
-                if wallet_live.get("open_trade"):
-                    send_telegram("ℹ️ Ya hay un trade principal abierto.")
-                else:
-                    balance = wallet_live["balance"]
-
-                    # =========================
-                    # Cálculo score radar
-                    # =========================
-                    buy_count = sum(1 for tf in radar if "BUY" in radar[tf])
-                    sell_count = sum(1 for tf in radar if "SELL" in radar[tf])
-
-                    score = 50
-
-                    if "BUY" in strength:
-                        score += 10
-                    if "SELL" in strength:
-                        score -= 10
-                    if structure.startswith("📈"):
-                        score += 10
-                    if structure.startswith("📉"):
-                        score -= 10
-
-                    score += (buy_count - sell_count) * 4
-                    score = max(0, min(100, score))
-
-                    # =========================
-                    # Recomendación final
-                    # =========================
-                    if score >= 60:
-                        recommendation = "C"
-                    elif score <= 40:
-                        recommendation = "V"
-                    else:
-                        recommendation = "Z"
-
-                    # =========================
-                    # Gestión riesgo
-                    # =========================
-                    control_tmp = load_control()
-                    stop_pct = control_tmp.get("stop_loss_pct", 0.6)
-
-                    risk_pct = 1
-                    risk_amount = balance * (risk_pct / 100)
-                    position = round(risk_amount / (stop_pct / 100), 2)
-
-                    # =========================
-                    # Stop y TP
-                    # =========================
-                    if recommendation == "C":
-                        stop = price * (1 - stop_pct / 100)
-                        tp = price * (1 + (stop_pct * 2) / 100)
-                    elif recommendation == "V":
-                        stop = price * (1 + stop_pct / 100)
-                        tp = price * (1 - (stop_pct * 2) / 100)
-                    else:
-                        stop = price * (1 - stop_pct / 100)
-                        tp = price * (1 + stop_pct / 100)
-
-                    # =========================
-                    # Guardar estado
-                    # =========================
-                    manual_order_state = "suggestion"
-                    manual_order_data = {
-                        "price": price,
-                        "amount": position,
-                        "stop": stop,
-                        "tp": tp,
-                        "side": recommendation,
-                    }
-
-                    # =========================
-                    # Enviar propuesta
-                    # =========================
-                    send_telegram(
-                        f"🧠 RADAR MANUAL ENTRY\n\n"
-                        f"Activo: {active_symbol}\n"
-                        f"Precio: {price:.2f}\n\n"
-                        f"Recomendación: {recommendation}\n"
-                        f"Score radar: {score}/100\n\n"
-                        f"Importe sugerido: {position:.2f} USDT\n"
-                        f"Stop sugerido: {stop:.2f}\n"
-                        f"Take Profit sugerido: {tp:.2f}\n\n"
-                        f"Escribe 1 para ejecutar\n"
-                        f"Escribe 2 para cancelar"
-                    )
-
-            except Exception as e:
-                send_telegram(f"❌ Error en orden manual: {e}")
-
-            continue
-
-        # ============================================================
-        # 10) FIN DE CICLO
-        #    - Pausa mínima antes del siguiente loop
-        # ============================================================
+        # FIN DE CICLO
         time.sleep(1)
 
     except Exception as e:
