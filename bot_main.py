@@ -338,27 +338,7 @@ while True:
                 send_telegram(trade_msg)
                 continue
                 
-             # RADAR
-            if cmd in ["radar", "/radar"]:
-                send_telegram("🎯 Radar recibido")
-                continue
-
-            # ORDEN MANUAL
-            if cmd in ["orden manual", "/manual_order"]:
-                send_telegram("🛠️ Orden manual recibida")
-                continue
-
-            # RIESGO
-            if cmd in ["riesgo", "/risk"]:
-                send_telegram("⚙️ Panel de riesgo recibido")
-                continue   
-                
-
-            # WALLET
-            if cmd in ["/wallet", "cuenta"]:
-                wallet_live = load_wallet()
-                balance_now = wallet_live["balance"]
-                trade_live = wallet_live["open_trade"]
+            
 
                 floating_pnl_amount = 0.0
 
