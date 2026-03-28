@@ -918,13 +918,14 @@ while True:
 
         # ============================================================
         # 9) COMANDOS DIFERIDOS DEPENDIENTES DE MERCADO
-        #    - Aquí encajan RADAR / RIESGO / ORDEN MANUAL
+        #    - Aquí encajan RADAR / RIESGO
         #    - Porque aquí ya existen price, radar, strength,
         #      structure, mtf_decision, entry_score y final_entry
         # ============================================================
 
         # ============================================================
         # 9.1) RADAR
+        #    - Envía panel gráfico + resumen del activo actual
         # ============================================================
         if any(normalize_telegram_command(c).strip().lower() in ["/radar", "radar"] for c in commands):
             try:
@@ -956,6 +957,7 @@ while True:
 
         # ============================================================
         # 9.2) RIESGO
+        #    - Abre panel simple de gestión de riesgo
         # ============================================================
         if any(normalize_telegram_command(c).strip().lower() in ["/risk", "riesgo"] for c in commands):
             try:
@@ -976,9 +978,12 @@ while True:
         # ============================================================
         # 9.3) ORDEN MANUAL
         #    - Genera propuesta manual usando radar + estado actual
+        #    - Se ejecuta desde botón "🛠️ Orden manual"
         # ============================================================
-        if any(normalize_telegram_command(c).strip().lower() in ["/manual_order", "orden manual"] for c in commands):
+        if cmd in ["/manual_order", "orden manual"]:
             try:
+                print("🔥 ENTRÓ EN ORDEN MANUAL")
+
                 wallet_live = load_wallet()
 
                 if wallet_live.get("open_trade"):
@@ -986,6 +991,9 @@ while True:
                 else:
                     balance = wallet_live["balance"]
 
+                    # =========================
+                    # Cálculo score radar
+                    # =========================
                     buy_count = sum(1 for tf in radar if "BUY" in radar[tf])
                     sell_count = sum(1 for tf in radar if "SELL" in radar[tf])
 
@@ -1003,6 +1011,9 @@ while True:
                     score += (buy_count - sell_count) * 4
                     score = max(0, min(100, score))
 
+                    # =========================
+                    # Recomendación final
+                    # =========================
                     if score >= 60:
                         recommendation = "C"
                     elif score <= 40:
@@ -1010,6 +1021,9 @@ while True:
                     else:
                         recommendation = "Z"
 
+                    # =========================
+                    # Gestión riesgo
+                    # =========================
                     control_tmp = load_control()
                     stop_pct = control_tmp.get("stop_loss_pct", 0.6)
 
@@ -1017,6 +1031,9 @@ while True:
                     risk_amount = balance * (risk_pct / 100)
                     position = round(risk_amount / (stop_pct / 100), 2)
 
+                    # =========================
+                    # Stop y TP
+                    # =========================
                     if recommendation == "C":
                         stop = price * (1 - stop_pct / 100)
                         tp = price * (1 + (stop_pct * 2) / 100)
@@ -1027,6 +1044,9 @@ while True:
                         stop = price * (1 - stop_pct / 100)
                         tp = price * (1 + stop_pct / 100)
 
+                    # =========================
+                    # Guardar estado
+                    # =========================
                     manual_order_state = "suggestion"
                     manual_order_data = {
                         "price": price,
@@ -1036,6 +1056,9 @@ while True:
                         "side": recommendation,
                     }
 
+                    # =========================
+                    # Enviar propuesta
+                    # =========================
                     send_telegram(
                         f"🧠 RADAR MANUAL ENTRY\n\n"
                         f"Activo: {active_symbol}\n"
@@ -1051,6 +1074,8 @@ while True:
 
             except Exception as e:
                 send_telegram(f"❌ Error en orden manual: {e}")
+
+            continue
 
         # ============================================================
         # 10) FIN DE CICLO
