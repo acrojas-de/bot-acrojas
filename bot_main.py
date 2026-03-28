@@ -126,10 +126,8 @@ current_trade_mode = control_boot.get("trade_mode", TRADE_MODE)
 last_state = None
 last_update_id = None
 last_active_symbol = None
-
 manual_order_state = None
 manual_order_data = {}
-
 risk_state = None
 risk_data = {}
 
@@ -337,8 +335,12 @@ while True:
 
                 send_telegram(trade_msg)
                 continue
-                
-            
+
+            # WALLET
+            if cmd in ["/wallet", "cuenta"]:
+                wallet_live = load_wallet()
+                balance_now = wallet_live["balance"]
+                trade_live = wallet_live["open_trade"]
 
                 floating_pnl_amount = 0.0
 
