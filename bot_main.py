@@ -320,72 +320,72 @@ while True:
             elif result:
                 continue
                             
-# ============================================================
-# ENTRADA RÁPIDA DESDE RANKING (1c / 2v / 3c...)
-# ============================================================
-if len(cmd) >= 2 and cmd[:-1].isdigit() and cmd[-1].lower() in ["c", "v"]:
-    print("🚀 ENTRADA RÁPIDA DETECTADA:", cmd)
+            # ============================================================
+            # ENTRADA RÁPIDA DESDE RANKING (1c / 2v / 3c...)
+            # ============================================================
+            if len(cmd) >= 2 and cmd[:-1].isdigit() and cmd[-1].lower() in ["c", "v"]:
+                print("🚀 ENTRADA RÁPIDA DETECTADA:", cmd)
 
-    idx = int(cmd[:-1]) - 1
-    side_cmd = cmd[-1].lower()
+                idx = int(cmd[:-1]) - 1
+                side_cmd = cmd[-1].lower()
 
-    if 0 <= idx < len(ranking_handler.LAST_RANKING):
-        selected = ranking_handler.LAST_RANKING[idx]
-        symbol = selected["symbol"]
+                if 0 <= idx < len(ranking_handler.LAST_RANKING):
+                    selected = ranking_handler.LAST_RANKING[idx]
+                    symbol = selected["symbol"]
 
-        ticker = client.get_symbol_ticker(symbol=symbol)
-        price = float(ticker["price"])
+                    ticker = client.get_symbol_ticker(symbol=symbol)
+                    price = float(ticker["price"])
 
-        wallet_live = load_wallet()
-        open_trades = wallet_live.get("open_trades", [])
+                    wallet_live = load_wallet()
+                    open_trades = wallet_live.get("open_trades", [])
 
-        if len(open_trades) >= 10:
-            send_telegram("ℹ️ Ya hay demasiados trades abiertos")
-            continue
+                    if len(open_trades) >= 10:
+                        send_telegram("ℹ️ Ya hay demasiados trades abiertos")
+                        continue
 
-        balance = wallet_live["balance"]
+                    balance = wallet_live["balance"]
 
-        control_tmp = load_control()
-        stop_pct = control_tmp.get("stop_loss_pct", 0.6)
+                    control_tmp = load_control()
+                    stop_pct = control_tmp.get("stop_loss_pct", 0.6)
 
-        risk_pct = 1
-        risk_amount = balance * (risk_pct / 100)
-        position = round(risk_amount / (stop_pct / 100), 2)
+                    risk_pct = 1
+                    risk_amount = balance * (risk_pct / 100)
+                    position = round(risk_amount / (stop_pct / 100), 2)
 
-        if side_cmd == "c":
-            side = "LONG"
-            stop = price * (1 - stop_pct / 100)
-            tp = price * (1 + (stop_pct * 2) / 100)
-            open_long(price)
-        else:
-            side = "SHORT"
-            stop = price * (1 + stop_pct / 100)
-            tp = price * (1 - (stop_pct * 2) / 100)
-            open_short(price)
+                    if side_cmd == "c":
+                        side = "LONG"
+                        stop = price * (1 - stop_pct / 100)
+                        tp = price * (1 + (stop_pct * 2) / 100)
+                        open_long(price)
+                    else:
+                        side = "SHORT"
+                        stop = price * (1 + stop_pct / 100)
+                        tp = price * (1 - (stop_pct * 2) / 100)
+                        open_short(price)
 
-        create_trade(
-            symbol=symbol,
-            side=side,
-            entry=price,
-            amount=position,
-            stop=stop,
-            take_profit=tp,
-            mode="manual",
-        )
+                    create_trade(
+                        symbol=symbol,
+                        side=side,
+                        entry=price,
+                        amount=position,
+                        stop=stop,
+                        take_profit=tp,
+                        mode="manual",
+                    )
 
-        send_telegram(
-            f"🚀 TRADE ABIERTO\n\n"
-            f"Activo: {symbol}\n"
-            f"Side: {side}\n"
-            f"Entrada: {price:.2f}\n"
-            f"Capital: {position:.2f}\n"
-            f"Stop: {stop:.2f}\n"
-            f"TP: {tp:.2f}"
-        )
-        continue
-    else:
-        send_telegram("❌ Índice inválido")
-        continue
+                    send_telegram(
+                        f"🚀 TRADE ABIERTO\n\n"
+                        f"Activo: {symbol}\n"
+                        f"Side: {side}\n"
+                        f"Entrada: {price:.2f}\n"
+                        f"Capital: {position:.2f}\n"
+                        f"Stop: {stop:.2f}\n"
+                        f"TP: {tp:.2f}"
+                    )
+                    continue
+                else:
+                    send_telegram("❌ Índice inválido")
+                    continue
 
             # SELECCIÓN DESDE RANKING
             if cmd.isdigit():
