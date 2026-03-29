@@ -1,6 +1,7 @@
 from handlers.telegram.ranking_handler import handle_ranking 
 from handlers.telegram.history_handler import handle_history
 from handlers.telegram.select_handler import handle_select
+from handlers.telegram.trade_handler import handle_trades, handle_close
 
 
 def dispatch_command(cmd, context):
@@ -17,3 +18,9 @@ def dispatch_command(cmd, context):
         return ("select", result)
 
     return False
+    
+    if cmd in ["/trades", "trades"]:
+        return handle_trades(context)
+
+    if cmd in ["/close", "close"]:
+        return handle_close(context)
