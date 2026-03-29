@@ -664,7 +664,7 @@ while True:
                 continue
 
             # CLOSE
-            if cmd in ["/close", "c", "cerrar"]:
+            if cmd.startswith("/close") or cmd in ["c", "cerrar"]:
                 wallet_live = load_wallet()
                 open_trades = wallet_live.get("open_trades", [])
 
@@ -673,7 +673,23 @@ while True:
                         send_telegram("⏳ Espera un segundo y vuelve a pulsar Cerrar")
                         continue
 
-                    trade_live = open_trades[-1]
+                    # 👉 NUEVO: detectar índice
+                    parts = cmd.split()
+
+                    if len(parts) > 1:
+                        try:
+                            idx = int(parts[1]) - 1
+                        except:
+                            send_telegram("❌ Índice inválido. Usa /close 1")
+                            continue
+                    else:
+                        idx = len(open_trades) - 1  # ← como antes
+
+                    if idx < 0 or idx >= len(open_trades):
+                        send_telegram("❌ Ese trade no existe")
+                        continue
+
+                    trade_live = open_trades[idx]
 
                     entry = trade_live["entry"]
                     side_close = trade_live["side"]
@@ -695,10 +711,14 @@ while True:
                         "exit": cached_price,
                         "pnl": pnl,
                         "timestamp": now_str(),
+                        "reason": "MANUAL",  # 👈 añadido (no rompe nada)
                     })
 
                     wallet_live["balance"] += pnl
-                    open_trades.pop()
+
+                    # 👉 CAMBIO CLAVE: borrar por índice
+                    open_trades.pop(idx)
+
                     wallet_live["open_trades"] = open_trades
                     save_wallet(wallet_live)
 
