@@ -758,7 +758,7 @@ while True:
 
         now = time.time()
 
-        # ============================================================
+        # ============================================================       
         # 2) REFRESCO DE MERCADO
         # ============================================================
         if now - last_market_run >= UPDATE_INTERVAL or cached_signal is None:
@@ -770,11 +770,15 @@ while True:
             open_trades = wallet_live.get("open_trades", [])
 
             floating_pnl_amount = 0.0
+            remaining_trades = []
 
             for trade_live in open_trades:
                 live_entry = trade_live["entry"]
                 live_side = trade_live["side"]
                 live_amount = trade_live.get("amount", current_balance)
+                live_stop = trade_live.get("stop")
+                live_tp = trade_live.get("take_profit")
+                trade_symbol = trade_live.get("symbol", active_symbol)
 
                 if live_side == "LONG":
                     live_pnl_pct = (price - live_entry) / live_entry * 100
@@ -783,6 +787,56 @@ while True:
 
                 floating_pnl_amount += live_amount * (live_pnl_pct / 100)
 
+                closed_reason = None
+
+                if live_side == "LONG":
+                    if live_stop is not None and price <= live_stop:
+                        closed_reason = "STOP LOSS"
+                    elif live_tp is not None and price >= live_tp:
+                        closed_reason = "TAKE PROFIT"
+                else:  # SHORT
+                    if live_stop is not None and price >= live_stop:
+                        closed_reason = "STOP LOSS"
+                    elif live_tp is not None and price <= live_tp:
+                        closed_reason = "TAKE PROFIT"
+
+                if closed_reason:
+                    if live_side == "LONG":
+                        pnl = (price - live_entry) / live_entry * live_amount
+                    else:
+                        pnl = (live_entry - price) / live_entry * live_amount
+
+                    if "history" not in wallet_live:
+                        wallet_live["history"] = []
+
+                    wallet_live["history"].append({
+                        "symbol": trade_symbol,
+                        "side": live_side,
+                        "entry": live_entry,
+                        "exit": price,
+                        "pnl": pnl,
+                        "timestamp": now_str(),
+                        "reason": closed_reason,
+                    })
+
+                    wallet_live["balance"] += pnl
+
+                    send_telegram(
+                        f"{'🛑' if closed_reason == 'STOP LOSS' else '✅'} {closed_reason} EJECUTADO\n"
+                        f"Activo: {trade_symbol}\n"
+                        f"Side: {live_side}\n"
+                        f"Entrada: {live_entry:.2f}\n"
+                        f"Salida: {price:.2f}\n"
+                        f"PnL realizado: {pnl:.2f}\n"
+                        f"Nuevo balance: {wallet_live['balance']:.2f}"
+                    )
+                else:
+                    remaining_trades.append(trade_live)
+
+            wallet_live["open_trades"] = remaining_trades
+            save_wallet(wallet_live)
+
+            current_balance = wallet_live["balance"]
             equity_estimate = current_balance + floating_pnl_amount
 
             log_equity(
@@ -790,7 +844,7 @@ while True:
                     "timestamp": now_str(),
                     "price": price,
                     "balance": current_balance,
-                    "open_trade": "YES" if open_trades else "NO",
+                    "open_trade": "YES" if remaining_trades else "NO",
                     "equity": equity_estimate,
                     "floating_pnl": floating_pnl_amount,
                     "risk_mode": risk_mode,
@@ -821,7 +875,6 @@ while True:
             cached_capital_diff = capital_diff
             cached_klines_map = klines_map
             last_market_run = now
-
         else:
             bias_4h = get_htf_bias(klines_map["4h"])
             compression = compression_signal(klines_map["1h"])
