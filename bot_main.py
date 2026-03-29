@@ -297,28 +297,7 @@ while True:
             print("CMD RAW:", raw_cmd)
             print("CMD NORMALIZED:", cmd)
             
-            # =========================
-            # DISPATCHER (HANDLERS)
-            # =========================
-            context = {
-                "client": client,
-                "watchlist": WATCHLIST,
-                "default_symbol": DEFAULT_SYMBOL,
-                "manual_symbol": manual_symbol,
-                "raw_cmd": raw_cmd,
-            }
 
-            result = dispatch_command(cmd, context)
-
-            if isinstance(result, tuple):
-                action, value = result
-
-                if action == "select":
-                    manual_symbol = value
-                    continue
-
-            elif result:
-                continue
                             
 # ============================================================
 # ENTRADA RÁPIDA DESDE RANKING (1c / 2v / 3c...)
@@ -405,100 +384,126 @@ while True:
 #         send_telegram("❌ Índice inválido")
 #         continue
 
-            # SELECCIÓN DESDE RANKING
-            if cmd.isdigit():
-                idx = int(cmd) - 1
+        # ============================================================
+        # PRIORIDAD: RESPUESTA ORDEN MANUAL
+        # ============================================================
+        if manual_order_state == "suggestion":
 
-                if 0 <= idx < len(ranking_handler.LAST_RANKING):
-                    selected_symbol = ranking_handler.LAST_RANKING[idx]["symbol"]
+            print("🧪 DETECTADO ESTADO MANUAL ORDER")
+            print("🧪 cmd:", cmd)
 
-                    manual_symbol = selected_symbol
-                    last_active_symbol = selected_symbol
+            if cmd in ["1", "/execute", "ejecutar"]:
+                print("🔥🔥🔥 PASO POR EJECUCIÓN MANUAL")
+                print("🧪 EJECUTANDO ORDEN MANUAL")
 
-                    send_telegram(f"🎯 Seleccionado: {selected_symbol}")
-                    continue
+                entry_price = manual_order_data["price"]
+                side_manual = manual_order_data["side"]
+
+                if side_manual == "C":
+                    open_long(entry_price)
+                    trade_side = "LONG"
+                elif side_manual == "V":
+                    open_short(entry_price)
+                    trade_side = "SHORT"
                 else:
-                    send_telegram("❌ Índice inválido")
-                    continue
-
-            # ============================================================
-            # PRIORIDAD: RESPUESTA ORDEN MANUAL
-            # ============================================================
-            if manual_order_state == "suggestion":
-
-                print("🧪 DETECTADO ESTADO MANUAL ORDER")
-                print("🧪 cmd:", cmd)
-
-                if cmd in ["1", "/execute", "ejecutar"]:
-                    print("🔥🔥🔥 PASO POR EJECUCIÓN MANUAL")
-                    print("🧪 EJECUTANDO ORDEN MANUAL")
-
-                    entry_price = manual_order_data["price"]
-                    side_manual = manual_order_data["side"]
-
-                    if side_manual == "C":
-                        open_long(entry_price)
-                        trade_side = "LONG"
-                    elif side_manual == "V":
-                        open_short(entry_price)
-                        trade_side = "SHORT"
-                    else:
-                        send_telegram("⏸️ Radar recomienda esperar")
-                        manual_order_state = None
-                        manual_order_data = {}
-                        continue
-
-                    wallet_live = load_wallet()
-                    print("🔥🔥🔥 VOY A CREAR TRADE")
-
-                    trade_symbol = manual_order_data["symbol"]
-
-                    create_trade(
-                        symbol=trade_symbol,
-                        side=trade_side,
-                        entry=entry_price,
-                        amount=manual_order_data["amount"],
-                        stop=manual_order_data["stop"],
-                        take_profit=manual_order_data["tp"],
-                        mode="manual",
-                    )
-
-                    open_trades = wallet_live.get("open_trades", [])
-
-                    new_trade = {
-                        "symbol": trade_symbol,
-                        "side": trade_side,
-                        "entry": entry_price,
-                        "amount": manual_order_data["amount"],
-                        "stop": manual_order_data["stop"],
-                        "take_profit": manual_order_data["tp"],
-                        "status": "open",
-                        "timestamp_open": now_str(),
-                    }
-
-                    open_trades.append(new_trade)
-                    wallet_live["open_trades"] = open_trades
-                    save_wallet(wallet_live)
-
-                    send_telegram(
-                        f"✅ ORDEN MANUAL ABIERTA\n\n"
-                        f"Activo: {trade_symbol}\n"
-                        f"Entrada: {entry_price:.2f}\n"
-                        f"Dirección: {trade_side}\n"
-                        f"Importe: {manual_order_data['amount']:.2f}\n"
-                        f"Stop Loss: {manual_order_data['stop']:.2f}\n"
-                        f"Take Profit: {manual_order_data['tp']:.2f}"
-                    )
-
+                    send_telegram("⏸️ Radar recomienda esperar")
                     manual_order_state = None
                     manual_order_data = {}
                     continue
 
-                elif cmd in ["2", "/cancel", "cancelar"]:
-                    send_telegram("❌ Orden manual cancelada")
-                    manual_order_state = None
-                    manual_order_data = {}
-                    continue
+                wallet_live = load_wallet()
+                print("🔥🔥🔥 VOY A CREAR TRADE")
+
+                trade_symbol = manual_order_data["symbol"]
+
+                create_trade(
+                    symbol=trade_symbol,
+                    side=trade_side,
+                    entry=entry_price,
+                    amount=manual_order_data["amount"],
+                    stop=manual_order_data["stop"],
+                    take_profit=manual_order_data["tp"],
+                    mode="manual",
+                )
+
+                open_trades = wallet_live.get("open_trades", [])
+
+                new_trade = {
+                    "symbol": trade_symbol,
+                    "side": trade_side,
+                    "entry": entry_price,
+                    "amount": manual_order_data["amount"],
+                    "stop": manual_order_data["stop"],
+                    "take_profit": manual_order_data["tp"],
+                    "status": "open",
+                    "timestamp_open": now_str(),
+                }
+
+                open_trades.append(new_trade)
+                wallet_live["open_trades"] = open_trades
+                save_wallet(wallet_live)
+
+                send_telegram(
+                    f"✅ ORDEN MANUAL ABIERTA\n\n"
+                    f"Activo: {trade_symbol}\n"
+                    f"Entrada: {entry_price:.2f}\n"
+                    f"Dirección: {trade_side}\n"
+                    f"Importe: {manual_order_data['amount']:.2f}\n"
+                    f"Stop Loss: {manual_order_data['stop']:.2f}\n"
+                    f"Take Profit: {manual_order_data['tp']:.2f}"
+                )
+
+                manual_order_state = None
+                manual_order_data = {}
+                continue
+
+            elif cmd in ["2", "/cancel", "cancelar"]:
+                send_telegram("❌ Orden manual cancelada")
+                manual_order_state = None
+                manual_order_data = {}
+                continue
+
+
+        # =========================
+        # DISPATCHER (HANDLERS)
+        # =========================
+        context = {
+            "client": client,
+            "watchlist": WATCHLIST,
+            "default_symbol": DEFAULT_SYMBOL,
+            "manual_symbol": manual_symbol,
+            "raw_cmd": raw_cmd,
+        }
+
+        result = dispatch_command(cmd, context)
+
+        if isinstance(result, tuple):
+            action, value = result
+
+            if action == "select":
+                manual_symbol = value
+                continue
+
+        elif result:
+            continue
+
+
+        # SELECCIÓN DESDE RANKING
+        if cmd.isdigit():
+            idx = int(cmd) - 1
+
+            if 0 <= idx < len(ranking_handler.LAST_RANKING):
+                selected_symbol = ranking_handler.LAST_RANKING[idx]["symbol"]
+
+                manual_symbol = selected_symbol
+                last_active_symbol = selected_symbol
+
+                send_telegram(f"🎯 Seleccionado: {selected_symbol}")
+                continue
+            else:
+                send_telegram("❌ Índice inválido")
+                continue
+
 
 
             # ÓRBITA MENU
