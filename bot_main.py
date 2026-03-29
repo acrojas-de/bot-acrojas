@@ -673,7 +673,7 @@ while True:
                         send_telegram("⏳ Espera un segundo y vuelve a pulsar Cerrar")
                         continue
 
-                    trade_live = open_trades[-1]  # último trade
+                    trade_live = open_trades[-1]
 
                     entry = trade_live["entry"]
                     side_close = trade_live["side"]
@@ -706,12 +706,15 @@ while True:
                         f"✅ Trade cerrado\n"
                         f"Activo: {trade_live.get('symbol', active_symbol)}\n"
                         f"Side: {side_close}\n"
-                        f"PnL: {pnl:.2f}"
+                        f"Salida: {cached_price:.2f}\n"
+                        f"PnL realizado: {pnl:.2f}\n"
+                        f"Nuevo balance: {wallet_live['balance']:.2f}"
                     )
                 else:
                     send_telegram("ℹ️ No hay trades abiertos")
 
                 continue
+
 
             # PAUSE / RESUME / MODOS
             if cmd in ["/pause", "p", "pausar"]:
