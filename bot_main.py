@@ -337,7 +337,7 @@ while True:
             # PRIORIDAD: RESPUESTA ORDEN MANUAL
             # ============================================================
             if manual_order_state == "suggestion":
-    ...
+
                 print("🧪 DETECTADO ESTADO MANUAL ORDER")
                 print("🧪 cmd:", cmd)
 
