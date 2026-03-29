@@ -377,28 +377,11 @@ while True:
                         mode="manual",
                     )
 
-                    open_trades = wallet_live.get("open_trades", [])
-
-                    new_trade = {
-                        "symbol": trade_symbol,
-                        "side": trade_side,
-                        "entry": entry_price,
-                        "amount": manual_order_data["amount"],
-                        "stop": manual_order_data["stop"],
-                        "take_profit": manual_order_data["tp"],
-                        "status": "open",
-                        "timestamp_open": now_str(),
-                    }
-
-                    open_trades.append(new_trade)
-                    wallet_live["open_trades"] = open_trades
-                    save_wallet(wallet_live)
-
                     send_telegram(
                         f"✅ ORDEN MANUAL ABIERTA\n\n"
                         f"Activo: {trade_symbol}\n"
                         f"Entrada: {entry_price:.2f}\n"
-                        f"Dirección: {side_manual}\n"
+                        f"Dirección: {'LONG' if side_manual == 'C' else 'SHORT'}\n"
                         f"Importe: {manual_order_data['amount']:.2f}\n"
                         f"Stop Loss: {manual_order_data['stop']:.2f}\n"
                         f"Take Profit: {manual_order_data['tp']:.2f}"
