@@ -319,6 +319,61 @@ while True:
 
             elif result:
                 continue
+                            
+            # ============================================================
+            # ENTRADA RÁPIDA DESDE RANKING (1c / 2v / 3c...)
+            # ============================================================
+            if len(cmd) >= 2 and cmd[:-1].isdigit() and cmd[-1].lower() in ["c", "v"]:
+                print("🚀 ENTRADA RÁPIDA DETECTADA:", cmd)  # 👈 AQUÍ 
+                idx = int(cmd[:-1]) - 1
+                side_cmd = cmd[-1].lower()
+
+                if 0 <= idx < len(ranking_handler.LAST_RANKING):
+                    selected = ranking_handler.LAST_RANKING[idx]
+                    symbol = selected["symbol"]
+
+                    ticker = client.get_symbol_ticker(symbol=symbol)
+                    price = float(ticker["price"])
+
+                    wallet_live = load_wallet()
+                    balance = wallet_live["balance"]
+
+                    risk_pct = 1
+                    stop_pct = 0.6
+
+                    risk_amount = balance * (risk_pct / 100)
+                    position = round(risk_amount / (stop_pct / 100), 2)
+
+                    if side_cmd == "c":
+                        side = "LONG"
+                        stop = price * (1 - stop_pct / 100)
+                        tp = price * (1 + (stop_pct * 2) / 100)
+                    else:
+                        side = "SHORT"
+                        stop = price * (1 + stop_pct / 100)
+                        tp = price * (1 - (stop_pct * 2) / 100)
+
+                    create_trade(
+                        symbol=symbol,
+                        side=side,
+                        entry=price,
+                        amount=position,
+                        stop=stop,
+                        take_profit=tp,
+                        mode="manual",
+                    )
+
+                    send_telegram(
+                        f"🚀 TRADE ABIERTO\n\n"
+                        f"Activo: {symbol}\n"
+                        f"Side: {side}\n"
+                        f"Entrada: {price:.2f}\n"
+                        f"Capital: {position:.2f}\n"
+                        f"Stop: {stop:.2f}\n"
+                        f"TP: {tp:.2f}"
+                    )
+
+                    continue
 
             # SELECCIÓN DESDE RANKING
             if cmd.isdigit():
