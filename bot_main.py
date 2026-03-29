@@ -23,6 +23,8 @@ from alerts.telegram_alerts import (
 )
 
 from handlers.telegram.telegram_dispatcher import dispatch_command
+from handlers.telegram.ranking_handler import LAST_RANKING
+
 
 # ============================================================
 # CONFIG GLOBAL
@@ -318,10 +320,24 @@ while True:
             elif result:
                 continue
 
+            # SELECCIÓN DESDE RANKING
+            if cmd.isdigit():
+                idx = int(cmd) - 1
+
+                if 0 <= idx < len(LAST_RANKING):
+                    selected_symbol = LAST_RANKING[idx]["symbol"]
+
+                    manual_symbol = selected_symbol
+                    last_active_symbol = selected_symbol
+
+                    send_telegram(f"🎯 Seleccionado: {selected_symbol}")
+                    continue
+
             # ============================================================
             # PRIORIDAD: RESPUESTA ORDEN MANUAL
             # ============================================================
             if manual_order_state == "suggestion":
+    ...
                 print("🧪 DETECTADO ESTADO MANUAL ORDER")
                 print("🧪 cmd:", cmd)
 
