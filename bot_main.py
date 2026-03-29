@@ -611,6 +611,7 @@ while True:
 
                         manual_order_state = "suggestion"
                         manual_order_data = {
+                            "symbol": active_symbol,
                             "price": cached_price,
                             "amount": position,
                             "stop": stop,
