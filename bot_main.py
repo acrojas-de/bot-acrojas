@@ -69,7 +69,7 @@ from engines.pullback_engine import pullback_zone
 from engines.sniper_entry import get_last_candle, sniper_entry
 from engines.vibora_engine import ViboraEngine
 from engines.smart_hunt_selector import get_selected_symbol, format_ranking_message
-from engines.trade_registry import create_trade
+from engines.trade_registry import create_trade, get_all_trades
 
 
 # ============================================================
@@ -358,27 +358,32 @@ while True:
                         mode="manual",
                     )
 
-                    print("🅿️ TRADE REGISTRY NUEVO:", trade_created)
+                    open_trades = wallet_live.get("open_trades", [])
 
-                    if wallet_live.get("open_trade"):
-                        wallet_live["open_trade"]["stop"] = manual_order_data["stop"]
-                        wallet_live["open_trade"]["take_profit"] = manual_order_data["tp"]
-                        wallet_live["open_trade"]["amount"] = manual_order_data["amount"]
-                        wallet_live["open_trade"]["status"] = "open"
-                        wallet_live["open_trade"]["timestamp_open"] = now_str()
-                        save_wallet(wallet_live)
+                    new_trade = {
+                        "symbol": trade_symbol,
+                        "side": trade_side,
+                        "entry": entry_price,
+                        "amount": manual_order_data["amount"],
+                        "stop": manual_order_data["stop"],
+                        "take_profit": manual_order_data["tp"],
+                        "status": "open",
+                        "timestamp_open": now_str(),
+                    }
 
-                        send_telegram(
-                            f"✅ ORDEN MANUAL ABIERTA\n\n"
-                            f"Activo: {active_symbol}\n"
-                            f"Entrada: {entry_price:.2f}\n"
-                            f"Dirección: {side_manual}\n"
-                            f"Importe: {manual_order_data['amount']:.2f}\n"
-                            f"Stop Loss: {manual_order_data['stop']:.2f}\n"
-                            f"Take Profit: {manual_order_data['tp']:.2f}"
-                        )
-                    else:
-                        send_telegram("❌ No se abrió el trade")
+                    open_trades.append(new_trade)
+                    wallet_live["open_trades"] = open_trades
+                    save_wallet(wallet_live)
+
+                    send_telegram(
+                        f"✅ ORDEN MANUAL ABIERTA\n\n"
+                        f"Activo: {trade_symbol}\n"
+                        f"Entrada: {entry_price:.2f}\n"
+                        f"Dirección: {side_manual}\n"
+                        f"Importe: {manual_order_data['amount']:.2f}\n"
+                        f"Stop Loss: {manual_order_data['stop']:.2f}\n"
+                        f"Take Profit: {manual_order_data['tp']:.2f}"
+                    )
 
                     manual_order_state = None
                     manual_order_data = {}
@@ -443,74 +448,73 @@ while True:
 
             # STATUS
             if cmd in ["/status", "s", "estado"]:
-                wallet_live = load_wallet()
-                
-                trade_live = wallet_live["open_trade"]
+                trades = get_all_trades()
 
-                if trade_live:
-                    status_msg = (
-                        f"📊 STATUS BOT\n"
-                        f"Activo: {active_symbol}\n"
-                        f"Modo bot: {BOT_MODE}\n"
-                        f"Modo gestión: {current_trade_mode}\n"
-                        f"Trade: ABIERTO\n"
-                        f"Side: {trade_live['side']}\n"
-                        f"Entrada: {trade_live['entry']:.2f}\n"
-                        f"Stop: {trade_live['stop']:.2f}\n"
-                        f"Balance: {wallet_live['balance']:.2f}"
-                    )
+                if trades:
+                    msg = "📊 STATUS BOT\n\n"
+
+                    for t in trades:
+                        msg += (
+                            f"Activo: {t['symbol']}\n"
+                            f"Side: {t['side']}\n"
+                            f"Entrada: {t['entry']:.2f}\n"
+                            f"SL: {t['stop']:.2f}\n"
+                            f"TP: {t['take_profit']:.2f}\n"
+                            f"Estado: {t['status']}\n\n"
+                        )
                 else:
-                    status_msg = (
-                        f"📊 STATUS BOT\n"
-                        f"Activo: {active_symbol}\n"
-                        f"Modo bot: {BOT_MODE}\n"
-                        f"Modo gestión: {current_trade_mode}\n"
-                        f"Trade: SIN OPERACIÓN ABIERTA\n"
-                        f"Balance: {wallet_live['balance']:.2f}"
-                    )
+                    msg = "📊 STATUS BOT\n\nSin trades abiertos"
 
-                send_telegram(status_msg)
+                send_telegram(msg)
                 continue
+
 
             # TRADE
             if cmd in ["/trade", "trade"]:
                 wallet_live = load_wallet()
-                trade_live = wallet_live["open_trade"]
+                open_trades = wallet_live.get("open_trades", [])
 
-                if trade_live:
+                if open_trades:
                     if cached_price is None:
                         send_telegram("⏳ Espera un segundo y vuelve a pulsar Trade")
                         continue
 
-                    live_entry = trade_live["entry"]
-                    live_side = trade_live["side"]
-                    live_stop = trade_live["stop"]
-                    live_tp = trade_live.get("take_profit")
-                    live_amount = trade_live.get("amount")
+                    trade_msg = "📈 ESTADO TRADE\n\n"
 
-                    if live_side == "LONG":
-                        live_pnl_pct = (cached_price - live_entry) / live_entry * 100
-                    else:
-                        live_pnl_pct = (live_entry - cached_price) / live_entry * 100
+                    for i, trade_live in enumerate(open_trades, start=1):
+                        live_entry = trade_live["entry"]
+                        live_side = trade_live["side"]
+                        live_stop = trade_live["stop"]
+                        live_tp = trade_live.get("take_profit")
+                        live_amount = trade_live.get("amount")
+                        trade_symbol = trade_live.get("symbol", active_symbol)
 
-                    trade_msg = (
-                        f"📈 ESTADO TRADE\n"
-                        f"Activo: {active_symbol}\n"
-                        f"Trade: ABIERTO\n"
-                        f"Side: {live_side}\n"
-                        f"Entrada: {live_entry:.2f}\n"
-                        f"Precio actual: {cached_price:.2f}\n"
-                        f"PnL %: {live_pnl_pct:.3f}\n"
-                        + (f"Importe: {live_amount:.2f}\n" if live_amount is not None else "")
-                        + f"Stop: {live_stop:.2f}\n"
-                        + (f"Take Profit: {live_tp:.2f}\n" if live_tp is not None else "")
-                        + f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}\n"
-                        + f"Modo gestión: {current_trade_mode}"
+                        if live_side == "LONG":
+                            live_pnl_pct = (cached_price - live_entry) / live_entry * 100
+                        else:
+                            live_pnl_pct = (live_entry - cached_price) / live_entry * 100
+
+                        trade_msg += (
+                            f"Trade #{i}\n"
+                            f"Activo: {trade_symbol}\n"
+                            f"Trade: ABIERTO\n"
+                            f"Side: {live_side}\n"
+                            f"Entrada: {live_entry:.2f}\n"
+                            f"Precio actual: {cached_price:.2f}\n"
+                            f"PnL %: {live_pnl_pct:.3f}\n"
+                            + (f"Importe: {live_amount:.2f}\n" if live_amount is not None else "")
+                            + f"Stop: {live_stop:.2f}\n"
+                            + (f"Take Profit: {live_tp:.2f}\n" if live_tp is not None else "")
+                            + "\n"
+                        )
+
+                    trade_msg += (
+                        f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}\n"
+                        f"Modo gestión: {current_trade_mode}"
                     )
                 else:
                     trade_msg = (
                         f"📈 ESTADO TRADE\n"
-                        f"Activo: {active_symbol}\n"
                         f"Trade: SIN OPERACIÓN ABIERTA\n"
                         f"Cierre automático: {'SÍ' if current_trade_mode == 'AUTO_LEVERAGE' else 'NO'}\n"
                         f"🛠️ Modo gestión: {current_trade_mode}\n"
@@ -523,32 +527,33 @@ while True:
             if cmd in ["/wallet", "cuenta"]:
                 wallet_live = load_wallet()
                 balance_now = wallet_live["balance"]
-                trade_live = wallet_live["open_trade"]
+                open_trades = wallet_live.get("open_trades", [])
 
                 floating_pnl_amount = 0.0
 
-                if trade_live and cached_price is not None:
-                    live_entry = trade_live["entry"]
-                    live_side = trade_live["side"]
+                if cached_price is not None:
+                    for trade_live in open_trades:
+                        live_entry = trade_live["entry"]
+                        live_side = trade_live["side"]
+                        live_amount = trade_live.get("amount", balance_now)
 
-                    if live_side == "LONG":
-                        live_pnl_pct = (cached_price - live_entry) / live_entry * 100
-                    else:
-                        live_pnl_pct = (live_entry - cached_price) / live_entry * 100
+                        if live_side == "LONG":
+                            live_pnl_pct = (cached_price - live_entry) / live_entry * 100
+                        else:
+                            live_pnl_pct = (live_entry - cached_price) / live_entry * 100
 
-                    live_amount = trade_live.get("amount", balance_now)
-                    floating_pnl_amount = live_amount * (live_pnl_pct / 100)
+                        floating_pnl_amount += live_amount * (live_pnl_pct / 100)
 
                 equity_estimate = balance_now + floating_pnl_amount
                 diff_vs_base = equity_estimate - CAPITAL_BASE
 
                 wallet_msg = (
                     f"💼 ESTADO CUENTA\n"
-                    f"Activo: {active_symbol}\n"
                     f"Balance realizado: {balance_now:.2f}\n"
                     f"PnL flotante: {floating_pnl_amount:.2f}\n"
                     f"Equity estimada: {equity_estimate:.2f}\n"
-                    f"Diferencia vs base: {diff_vs_base:.2f}"
+                    f"Diferencia vs base: {diff_vs_base:.2f}\n"
+                    f"Trades abiertos: {len(open_trades)}"
                 )
 
                 send_telegram(wallet_msg)
@@ -560,9 +565,10 @@ while True:
                     print("🔥 ENTRÓ EN ORDEN MANUAL")
 
                     wallet_live = load_wallet()
+                    open_trades = wallet_live.get("open_trades", [])
 
-                    if wallet_live.get("open_trade"):
-                        send_telegram("ℹ️ Ya hay un trade principal abierto.")
+                    if len(open_trades) >= 2:
+                        send_telegram("ℹ️ Ya hay 2 trades abiertos.")
                     else:
                         if cached_price is None or cached_signal is None:
                             send_telegram("⏳ Espera un segundo y vuelve a pulsar Orden manual")
@@ -620,16 +626,20 @@ while True:
                         }
 
                         send_telegram(
-                            f"🧠 RADAR MANUAL ENTRY\n\n"
-                            f"Activo: {active_symbol}\n"
-                            f"Precio: {cached_price:.2f}\n\n"
-                            f"Recomendación: {recommendation}\n"
-                            f"Score radar: {score}/100\n\n"
-                            f"Importe sugerido: {position:.2f} USDT\n"
-                            f"Stop sugerido: {stop:.2f}\n"
-                            f"Take Profit sugerido: {tp:.2f}\n\n"
-                            f"Escribe 1 para ejecutar\n"
-                            f"Escribe 2 para cancelar"
+                            f"🧠 ORDEN MANUAL\n\n"
+                            f"🟡 ACTIVO        : {active_symbol}\n"
+                            f"🔴 DIRECCIÓN     : {recommendation}\n"
+                            f"💰 PRECIO        : {cached_price:.2f}\n\n"
+                            f"📦 POSICIÓN\n"
+                            f"   Capital       : {position:.2f} USDT\n"
+                            f"   Riesgo        : {risk_amount:.2f} USDT\n"
+                            f"   Stop %        : {stop_pct}%\n\n"
+                            f"📉 NIVELES\n"
+                            f"   Stop Loss     : {stop:.2f}\n"
+                            f"   Take Profit   : {tp:.2f}\n\n"
+                            f"⚙️ ACCIÓN\n"
+                            f"   1 → Ejecutar\n"
+                            f"   2 → Cancelar"
                         )
 
                 except Exception as e:
@@ -640,12 +650,14 @@ while True:
             # CLOSE
             if cmd in ["/close", "c", "cerrar"]:
                 wallet_live = load_wallet()
-                trade_live = wallet_live.get("open_trade")
+                open_trades = wallet_live.get("open_trades", [])
 
-                if trade_live:
+                if open_trades:
                     if cached_price is None:
                         send_telegram("⏳ Espera un segundo y vuelve a pulsar Cerrar")
                         continue
+
+                    trade_live = open_trades[-1]  # último trade
 
                     entry = trade_live["entry"]
                     side_close = trade_live["side"]
@@ -661,6 +673,7 @@ while True:
                         wallet_live["history"] = []
 
                     wallet_live["history"].append({
+                        "symbol": trade_live.get("symbol", active_symbol),
                         "side": side_close,
                         "entry": entry,
                         "exit": cached_price,
@@ -669,24 +682,18 @@ while True:
                     })
 
                     wallet_live["balance"] += pnl
-                    wallet_live["open_trade"] = None
+                    open_trades.pop()
+                    wallet_live["open_trades"] = open_trades
                     save_wallet(wallet_live)
 
-                    control_tmp = load_control()
-                    control_tmp["allow_new_entries"] = False
-                    save_control(control_tmp)
-
                     send_telegram(
-                        f"✅ Trade cerrado manualmente desde Telegram\n"
-                        f"Activo: {active_symbol}\n"
+                        f"✅ Trade cerrado\n"
+                        f"Activo: {trade_live.get('symbol', active_symbol)}\n"
                         f"Side: {side_close}\n"
-                        f"Salida: {cached_price:.2f}\n"
-                        f"PnL realizado: {pnl:.2f}\n"
-                        f"Nuevo balance: {wallet_live['balance']:.2f}\n"
-                        f"⏸️ Nuevas entradas pausadas"
+                        f"PnL: {pnl:.2f}"
                     )
                 else:
-                    send_telegram("ℹ️ No hay trade abierto")
+                    send_telegram("ℹ️ No hay trades abiertos")
 
                 continue
 
@@ -741,11 +748,11 @@ while True:
 
             wallet_live = load_wallet()
             current_balance = wallet_live["balance"]
-            trade_live = wallet_live.get("open_trade")
+            open_trades = wallet_live.get("open_trades", [])
 
             floating_pnl_amount = 0.0
 
-            if trade_live:
+            for trade_live in open_trades:
                 live_entry = trade_live["entry"]
                 live_side = trade_live["side"]
                 live_amount = trade_live.get("amount", current_balance)
@@ -755,7 +762,7 @@ while True:
                 else:
                     live_pnl_pct = (live_entry - price) / live_entry * 100
 
-                floating_pnl_amount = live_amount * (live_pnl_pct / 100)
+                floating_pnl_amount += live_amount * (live_pnl_pct / 100)
 
             equity_estimate = current_balance + floating_pnl_amount
 
