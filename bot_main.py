@@ -326,6 +326,7 @@ while True:
                 print("🧪 cmd:", cmd)
 
                 if cmd in ["1", "/execute", "ejecutar"]:
+                    print("🔥🔥🔥 PASO POR EJECUCIÓN MANUAL")
                     print("🧪 EJECUTANDO ORDEN MANUAL")
 
                     entry_price = manual_order_data["price"]
@@ -342,6 +343,7 @@ while True:
                         continue
 
                     wallet_live = load_wallet()
+                    print("🔥🔥🔥 VOY A CREAR TRADE")
                     
                     trade_symbol = manual_order_data["symbol"]
                     trade_side = "LONG" if side_manual == "C" else "SHORT"
