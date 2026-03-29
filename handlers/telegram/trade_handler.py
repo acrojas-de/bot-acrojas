@@ -49,3 +49,5 @@ def handle_close(context):
 
     send_telegram(f"❌ Trade cerrado: {trade['symbol']}")
     return True
+    
+    

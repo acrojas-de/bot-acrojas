@@ -85,3 +85,22 @@ def close_trade(trade_id, exit_price, pnl):
     trade["pnl"] = pnl
 
     return trade
+    
+# =========================
+# GET ALL TRADES
+# =========================
+def get_all_trades():
+    return open_trades
+
+
+# =========================
+# CLOSE TRADE
+# =========================
+def close_trade(trade_id):
+    trade = get_trade_by_id(trade_id)
+
+    if not trade:
+        return None
+
+    trade["status"] = "closed"
+    return trade
