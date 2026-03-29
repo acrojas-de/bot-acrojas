@@ -464,47 +464,45 @@ while True:
                 continue
 
 
-        # =========================
-        # DISPATCHER (HANDLERS)
-        # =========================
-        context = {
-            "client": client,
-            "watchlist": WATCHLIST,
-            "default_symbol": DEFAULT_SYMBOL,
-            "manual_symbol": manual_symbol,
-            "raw_cmd": raw_cmd,
-        }
+            # =========================
+            # DISPATCHER (HANDLERS)
+            # =========================
+            context = {
+                "client": client,
+                "watchlist": WATCHLIST,
+                "default_symbol": DEFAULT_SYMBOL,
+                "manual_symbol": manual_symbol,
+                "raw_cmd": raw_cmd,
+            }
 
-        result = dispatch_command(cmd, context)
+            result = dispatch_command(cmd, context)
 
-        if isinstance(result, tuple):
-            action, value = result
+            if isinstance(result, tuple):
+                action, value = result
 
-            if action == "select":
-                manual_symbol = value
-                continue
+                if action == "select":
+                    manual_symbol = value
+                    continue
 
-        elif result:
-            continue
-
-
-        # SELECCIÓN DESDE RANKING
-        if cmd.isdigit():
-            idx = int(cmd) - 1
-
-            if 0 <= idx < len(ranking_handler.LAST_RANKING):
-                selected_symbol = ranking_handler.LAST_RANKING[idx]["symbol"]
-
-                manual_symbol = selected_symbol
-                last_active_symbol = selected_symbol
-
-                send_telegram(f"🎯 Seleccionado: {selected_symbol}")
-                continue
-            else:
-                send_telegram("❌ Índice inválido")
+            elif result:
                 continue
 
 
+            # SELECCIÓN DESDE RANKING
+            if cmd.isdigit():
+                idx = int(cmd) - 1
+
+                if 0 <= idx < len(ranking_handler.LAST_RANKING):
+                    selected_symbol = ranking_handler.LAST_RANKING[idx]["symbol"]
+
+                    manual_symbol = selected_symbol
+                    last_active_symbol = selected_symbol
+
+                    send_telegram(f"🎯 Seleccionado: {selected_symbol}")
+                    continue
+                else:
+                    send_telegram("❌ Índice inválido")
+                    continue
 
             # ÓRBITA MENU
             if cmd in ["/orbita", "orbita"]:
