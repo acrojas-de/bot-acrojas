@@ -787,7 +787,7 @@ while True:
                     "timestamp": now_str(),
                     "price": price,
                     "balance": current_balance,
-                    "open_trade": "YES" if trade_live else "NO",
+                    "open_trade": "YES" if open_trades else "NO",
                     "equity": equity_estimate,
                     "floating_pnl": floating_pnl_amount,
                     "risk_mode": risk_mode,
