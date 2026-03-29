@@ -69,6 +69,7 @@ from engines.pullback_engine import pullback_zone
 from engines.sniper_entry import get_last_candle, sniper_entry
 from engines.vibora_engine import ViboraEngine
 from engines.smart_hunt_selector import get_selected_symbol, format_ranking_message
+from engines.trade_registry import create_trade
 
 
 # ============================================================
@@ -341,6 +342,21 @@ while True:
                         continue
 
                     wallet_live = load_wallet()
+                    
+                    trade_symbol = manual_order_data["symbol"]
+                    trade_side = "LONG" if side_manual == "C" else "SHORT"
+
+                    trade_created = create_trade(
+                        symbol=trade_symbol,
+                        side=trade_side,
+                        entry=entry_price,
+                        amount=manual_order_data["amount"],
+                        stop=manual_order_data["stop"],
+                        take_profit=manual_order_data["tp"],
+                        mode="manual",
+                    )
+
+                    print("🅿️ TRADE REGISTRY NUEVO:", trade_created)
 
                     if wallet_live.get("open_trade"):
                         wallet_live["open_trade"]["stop"] = manual_order_data["stop"]
@@ -426,6 +442,7 @@ while True:
             # STATUS
             if cmd in ["/status", "s", "estado"]:
                 wallet_live = load_wallet()
+                
                 trade_live = wallet_live["open_trade"]
 
                 if trade_live:
