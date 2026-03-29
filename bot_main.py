@@ -23,7 +23,7 @@ from alerts.telegram_alerts import (
 )
 
 from handlers.telegram.telegram_dispatcher import dispatch_command
-from handlers.telegram.ranking_handler import LAST_RANKING
+import handlers.telegram.ranking_handler as ranking_handler
 
 
 # ============================================================
@@ -324,8 +324,8 @@ while True:
             if cmd.isdigit():
                 idx = int(cmd) - 1
 
-                if 0 <= idx < len(LAST_RANKING):
-                    selected_symbol = LAST_RANKING[idx]["symbol"]
+            if 0 <= idx < len(ranking_handler.LAST_RANKING):
+                selected_symbol = ranking_handler.LAST_RANKING[idx]["symbol"]
 
                     manual_symbol = selected_symbol
                     last_active_symbol = selected_symbol
