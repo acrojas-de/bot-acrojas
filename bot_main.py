@@ -324,13 +324,16 @@ while True:
             if cmd.isdigit():
                 idx = int(cmd) - 1
 
-            if 0 <= idx < len(ranking_handler.LAST_RANKING):
-                selected_symbol = ranking_handler.LAST_RANKING[idx]["symbol"]
+                if 0 <= idx < len(ranking_handler.LAST_RANKING):
+                    selected_symbol = ranking_handler.LAST_RANKING[idx]["symbol"]
 
                     manual_symbol = selected_symbol
                     last_active_symbol = selected_symbol
 
                     send_telegram(f"🎯 Seleccionado: {selected_symbol}")
+                    continue
+                else:
+                    send_telegram("❌ Índice inválido")
                     continue
 
             # ============================================================
