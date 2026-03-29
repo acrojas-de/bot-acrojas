@@ -17,10 +17,10 @@ def dispatch_command(cmd, context):
         result = handle_select(context)
         return ("select", result)
 
-    return False
-    
     if cmd in ["/trades", "trades"]:
         return handle_trades(context)
 
     if cmd in ["/close", "close"]:
         return handle_close(context)
+        
+    return False
