@@ -373,6 +373,24 @@ while True:
                         mode="manual",
                     )
 
+                    wallet_live = load_wallet()
+                    open_trades = wallet_live.get("open_trades", [])
+
+                    new_trade = {
+                        "symbol": symbol,
+                        "side": side,
+                        "entry": price,
+                        "amount": position,
+                        "stop": stop,
+                        "take_profit": tp,
+                        "status": "open",
+                        "timestamp_open": now_str(),
+                    }
+
+                    open_trades.append(new_trade)
+                    wallet_live["open_trades"] = open_trades
+                    save_wallet(wallet_live)
+
                     send_telegram(
                         f"🚀 TRADE ABIERTO\n\n"
                         f"Activo: {symbol}\n"
